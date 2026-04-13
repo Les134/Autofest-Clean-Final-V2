@@ -18,6 +18,8 @@ export default function App(){
   const [screen,setScreen] = useState("home");
   const [judge,setJudge] = useState("");
 
+  const [entries,setEntries] = useState([]);
+
   const [car,setCar] = useState("");
   const [driver,setDriver] = useState("");
   const [rego,setRego] = useState("");
@@ -56,25 +58,53 @@ export default function App(){
 
     const tyreScore = (tyres.left?5:0)+(tyres.right?5:0);
     const deductionTotal = Object.values(deductions).filter(v=>v).length*10;
-
     const total = Object.values(scores).reduce((a,b)=>a+b,0);
 
     const finalScore = total + tyreScore - deductionTotal;
 
-    console.log("FINAL SCORE:", finalScore);
+    const entry = {
+      car, driver, rego, carName,
+      gender, carClass,
+      finalScore
+    };
 
-    // RESET FAST
+    setEntries(prev => [...prev, entry]);
+
+    // RESET
     setScores({});
     setDeductions({});
     setTyres({left:false,right:false});
-    setCar("");
-    setDriver("");
-    setRego("");
-    setCarName("");
-    setGender("");
-    setCarClass("");
+    setCar(""); setDriver(""); setRego(""); setCarName("");
+    setGender(""); setCarClass("");
 
     alert("Score Saved ✅");
+  }
+
+  function sorted(){
+    return [...entries].sort((a,b)=>b.finalScore - a.finalScore);
+  }
+
+  function top150(){
+    return sorted().slice(0,150);
+  }
+
+  function top30(){
+    return sorted().slice(0,30);
+  }
+
+  function classWinners(){
+    const grouped = {};
+
+    sorted().forEach(e=>{
+      if(!grouped[e.carClass]) grouped[e.carClass] = [];
+      grouped[e.carClass].push(e);
+    });
+
+    Object.keys(grouped).forEach(c=>{
+      grouped[c] = grouped[c].slice(0,3);
+    });
+
+    return grouped;
   }
 
   const btn = {padding:12,margin:6,borderRadius:6};
@@ -82,15 +112,22 @@ export default function App(){
   const big = {padding:16,margin:10,background:"#000",color:"#fff"};
   const row = {marginBottom:20};
 
+  // HOME
   if(screen==="home"){
     return (
       <div style={{height:"100vh",display:"flex",flexDirection:"column",justifyContent:"center",alignItems:"center"}}>
         <h1>AutoFest Burnout Champs</h1>
+
         <button style={big} onClick={()=>setScreen("judges")}>Start Judging</button>
+        <button style={big} onClick={()=>setScreen("leaderboard")}>Leaderboard</button>
+        <button style={big} onClick={()=>setScreen("top150")}>Top 150</button>
+        <button style={big} onClick={()=>setScreen("top30")}>Top 30 Finals</button>
+        <button style={big} onClick={()=>setScreen("winners")}>Class Winners</button>
       </div>
     );
   }
 
+  // JUDGES
   if(screen==="judges"){
     return (
       <div style={{padding:20}}>
@@ -103,6 +140,82 @@ export default function App(){
     );
   }
 
+  // LEADERBOARD
+  if(screen==="leaderboard"){
+    return (
+      <div style={{padding:20}}>
+        <h2>Leaderboard</h2>
+
+        {sorted().map((e,i)=>(
+          <div key={i} style={row}>
+            #{i+1} | Car {e.car} | {e.driver} | {e.carClass} | {e.gender} | {e.finalScore}
+          </div>
+        ))}
+
+        <button style={big} onClick={()=>setScreen("home")}>Home</button>
+      </div>
+    );
+  }
+
+  // TOP 150
+  if(screen==="top150"){
+    return (
+      <div style={{padding:20}}>
+        <h2>Top 150</h2>
+
+        {top150().map((e,i)=>(
+          <div key={i} style={row}>
+            #{i+1} | Car {e.car} | {e.carClass} | {e.finalScore}
+          </div>
+        ))}
+
+        <button style={big} onClick={()=>setScreen("home")}>Home</button>
+      </div>
+    );
+  }
+
+  // TOP 30
+  if(screen==="top30"){
+    return (
+      <div style={{padding:20}}>
+        <h2>Top 30 Finals</h2>
+
+        {top30().map((e,i)=>(
+          <div key={i} style={row}>
+            #{i+1} | Car {e.car} | {e.carClass} | {e.finalScore}
+          </div>
+        ))}
+
+        <button style={big} onClick={()=>setScreen("home")}>Home</button>
+      </div>
+    );
+  }
+
+  // CLASS WINNERS
+  if(screen==="winners"){
+    const winners = classWinners();
+
+    return (
+      <div style={{padding:20}}>
+        <h2>Class Winners</h2>
+
+        {Object.keys(winners).map(c=>(
+          <div key={c}>
+            <h3>{c}</h3>
+            {winners[c].map((e,i)=>(
+              <div key={i}>
+                {["🥇","🥈","🥉"][i]} Car {e.car} - {e.finalScore}
+              </div>
+            ))}
+          </div>
+        ))}
+
+        <button style={big} onClick={()=>setScreen("home")}>Home</button>
+      </div>
+    );
+  }
+
+  // SCORING SCREEN
   return (
     <div style={{padding:20}}>
 

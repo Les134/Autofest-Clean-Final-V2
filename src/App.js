@@ -28,6 +28,7 @@ export default function App(){
 
   const [screen,setScreen] = useState("home");
   const [entries,setEntries] = useState([]);
+  const [judge,setJudge] = useState("");
 
   const [car,setCar] = useState("");
   const [driver,setDriver] = useState("");
@@ -41,7 +42,6 @@ export default function App(){
   const [deductions,setDeductions] = useState({});
   const [tyres,setTyres] = useState({left:false,right:false});
 
-  // 🔥 LIVE SYNC
   useEffect(()=>{
     const unsub = onSnapshot(collection(db,"scores"),(snapshot)=>{
       const list = snapshot.docs.map(doc=>doc.data());
@@ -64,6 +64,11 @@ export default function App(){
 
   async function submit(){
 
+    if(!judge){
+      alert("Select judge");
+      return;
+    }
+
     if(!car && !driver && !rego && !carName){
       alert("Enter competitor");
       return;
@@ -83,11 +88,13 @@ export default function App(){
     await addDoc(collection(db,"scores"),{
       car, driver, rego, carName,
       gender, carClass,
+      judge,
       finalScore,
+      locked:true,
       time: Date.now()
     });
 
-    // RESET
+    // RESET FOR NEXT CAR
     setScores({});
     setDeductions({});
     setTyres({left:false,right:false});
@@ -96,11 +103,9 @@ export default function App(){
   }
 
   const sorted = [...entries].sort((a,b)=>b.finalScore - a.finalScore);
-
   const top150 = sorted.slice(0,150);
   const top30 = sorted.slice(0,30);
 
-  // 🏆 CLASS WINNERS
   const classWinners = {};
   sorted.forEach(e=>{
     if(!classWinners[e.carClass]){
@@ -119,10 +124,26 @@ export default function App(){
       <div style={{textAlign:"center",marginTop:100}}>
         <h1>AutoFest Burnout Champs</h1>
 
-        <button style={big} onClick={()=>setScreen("score")}>Start Judging</button>
+        <button style={big} onClick={()=>setScreen("judges")}>Start Judging</button>
         <button style={big} onClick={()=>setScreen("top150")}>Top 150</button>
         <button style={big} onClick={()=>setScreen("top30")}>Top 30 Finals</button>
         <button style={big} onClick={()=>setScreen("classes")}>Class Winners</button>
+        <button style={big} onClick={()=>window.print()}>Print Results</button>
+      </div>
+    );
+  }
+
+  // JUDGE SELECT
+  if(screen==="judges"){
+    return (
+      <div style={{padding:20}}>
+        <h2>Select Judge</h2>
+
+        {[1,2,3,4,5,6].map(j=>(
+          <button key={j} style={big} onClick={()=>{setJudge("Judge "+j);setScreen("score")}}>
+            Judge {j}
+          </button>
+        ))}
       </div>
     );
   }
@@ -182,6 +203,8 @@ export default function App(){
   return (
     <div style={{padding:20}}>
 
+      <h3>{judge}</h3>
+
       <input placeholder="Car #" value={car} onChange={e=>setCar(e.target.value)} />
       <input placeholder="Driver" value={driver} onChange={e=>setDriver(e.target.value)} />
       <input placeholder="Rego" value={rego} onChange={e=>setRego(e.target.value)} />
@@ -226,7 +249,7 @@ export default function App(){
         ))}
       </div>
 
-      <button style={big} onClick={submit}>Submit</button>
+      <button style={big} onClick={submit}>Submit & Lock</button>
       <button style={big} onClick={()=>setScreen("home")}>Home</button>
 
     </div>

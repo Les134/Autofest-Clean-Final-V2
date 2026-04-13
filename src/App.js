@@ -27,7 +27,6 @@ const deductionsList = ["Reversing","Stopping","Barrier","Fire"];
 export default function App(){
 
   const [screen,setScreen] = useState("home");
-  const [judge,setJudge] = useState("");
   const [entries,setEntries] = useState([]);
 
   const [car,setCar] = useState("");
@@ -48,7 +47,6 @@ export default function App(){
       const list = snapshot.docs.map(doc=>doc.data());
       setEntries(list);
     });
-
     return ()=>unsub();
   },[]);
 
@@ -82,15 +80,12 @@ export default function App(){
 
     const finalScore = total + tyreScore - deductionTotal;
 
-    const entry = {
+    await addDoc(collection(db,"scores"),{
       car, driver, rego, carName,
       gender, carClass,
-      judge,
       finalScore,
       time: Date.now()
-    };
-
-    await addDoc(collection(db,"scores"), entry);
+    });
 
     // RESET
     setScores({});
@@ -100,9 +95,18 @@ export default function App(){
     setGender(""); setCarClass("");
   }
 
-  function sorted(){
-    return [...entries].sort((a,b)=>b.finalScore - a.finalScore);
-  }
+  const sorted = [...entries].sort((a,b)=>b.finalScore - a.finalScore);
+
+  const top150 = sorted.slice(0,150);
+  const top30 = sorted.slice(0,30);
+
+  // 🏆 CLASS WINNERS
+  const classWinners = {};
+  sorted.forEach(e=>{
+    if(!classWinners[e.carClass]){
+      classWinners[e.carClass] = e;
+    }
+  });
 
   const btn = {padding:12,margin:6};
   const active = {padding:12,margin:6,background:"red",color:"#fff"};
@@ -112,37 +116,60 @@ export default function App(){
   // HOME
   if(screen==="home"){
     return (
-      <div style={{height:"100vh",display:"flex",flexDirection:"column",justifyContent:"center",alignItems:"center"}}>
+      <div style={{textAlign:"center",marginTop:100}}>
         <h1>AutoFest Burnout Champs</h1>
 
-        <button style={big} onClick={()=>setScreen("judges")}>Start Judging</button>
-        <button style={big} onClick={()=>setScreen("leaderboard")}>Leaderboard</button>
+        <button style={big} onClick={()=>setScreen("score")}>Start Judging</button>
+        <button style={big} onClick={()=>setScreen("top150")}>Top 150</button>
+        <button style={big} onClick={()=>setScreen("top30")}>Top 30 Finals</button>
+        <button style={big} onClick={()=>setScreen("classes")}>Class Winners</button>
       </div>
     );
   }
 
-  // JUDGES
-  if(screen==="judges"){
+  // TOP150
+  if(screen==="top150"){
     return (
       <div style={{padding:20}}>
-        {[1,2,3,4,5,6].map(j=>(
-          <button key={j} style={big} onClick={()=>{setJudge(`Judge ${j}`);setScreen("score")}}>
-            Judge {j}
-          </button>
-        ))}
-      </div>
-    );
-  }
+        <h2>Top 150</h2>
 
-  // LEADERBOARD
-  if(screen==="leaderboard"){
-    return (
-      <div style={{padding:20}}>
-        <h2>Leaderboard (LIVE)</h2>
-
-        {sorted().map((e,i)=>(
+        {top150.map((e,i)=>(
           <div key={i} style={row}>
             #{i+1} | Car {e.car} | {e.carClass} | {e.gender} | {e.finalScore}
+          </div>
+        ))}
+
+        <button style={big} onClick={()=>setScreen("home")}>Home</button>
+      </div>
+    );
+  }
+
+  // TOP30
+  if(screen==="top30"){
+    return (
+      <div style={{padding:20}}>
+        <h2>Top 30 Finals</h2>
+
+        {top30.map((e,i)=>(
+          <div key={i} style={row}>
+            #{i+1} | Car {e.car} | {e.finalScore}
+          </div>
+        ))}
+
+        <button style={big} onClick={()=>setScreen("home")}>Home</button>
+      </div>
+    );
+  }
+
+  // CLASS WINNERS
+  if(screen==="classes"){
+    return (
+      <div style={{padding:20}}>
+        <h2>Class Winners</h2>
+
+        {Object.keys(classWinners).map(c=>(
+          <div key={c} style={row}>
+            🏆 {c} → Car {classWinners[c].car} ({classWinners[c].finalScore})
           </div>
         ))}
 
@@ -154,8 +181,6 @@ export default function App(){
   // SCORING
   return (
     <div style={{padding:20}}>
-
-      <h2>{judge}</h2>
 
       <input placeholder="Car #" value={car} onChange={e=>setCar(e.target.value)} />
       <input placeholder="Driver" value={driver} onChange={e=>setDriver(e.target.value)} />

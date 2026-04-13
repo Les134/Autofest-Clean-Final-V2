@@ -11,6 +11,8 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
+const ADMIN_PASSWORD = "1234"; // 🔐 CHANGE THIS
+
 const categories = [
   "Instant Smoke",
   "Volume of Smoke",
@@ -22,15 +24,20 @@ const classes = [
   "V8 Pro","V8 N/A","6 Cyl Pro","6 Cyl N/A","4Cyl Open/Rotary"
 ];
 
+const deductionsList = ["Reversing","Stopping","Barrier","Fire"];
+
 export default function App(){
 
   const [screen,setScreen] = useState("setup");
   const [entries,setEntries] = useState([]);
   const [saving,setSaving] = useState(false);
-  const [savedFlash,setSavedFlash] = useState(false);
 
   const [eventName,setEventName] = useState("");
   const [judgeName,setJudgeName] = useState("");
+  const [judgeLocked,setJudgeLocked] = useState(false);
+
+  const [adminPass,setAdminPass] = useState("");
+  const [eventLocked,setEventLocked] = useState(false);
 
   const [car,setCar] = useState("");
   const [driver,setDriver] = useState("");
@@ -41,9 +48,10 @@ export default function App(){
   const [carClass,setCarClass] = useState("");
 
   const [scores,setScores] = useState({});
-  const [tyres,setTyres] = useState({left:false,right:false});
   const [deductions,setDeductions] = useState({});
+  const [tyres,setTyres] = useState({left:false,right:false});
 
+  // 🔥 LIVE SYNC
   useEffect(()=>{
     const unsub = onSnapshot(collection(db,"scores"),(snap)=>{
       setEntries(snap.docs.map(doc=>doc.data()));
@@ -52,17 +60,38 @@ export default function App(){
   },[]);
 
   const setScore = (cat,val)=> setScores({...scores,[cat]:val});
+  const toggleDeduction = (d)=> setDeductions({...deductions,[d]:!deductions[d]});
+  const toggleTyre = (t)=> setTyres({...tyres,[t]:!tyres[t]});
 
+  // 🔐 LOCK JUDGE
+  const lockJudge = ()=>{
+    if(!eventName || !judgeName){
+      alert("Enter event + judge");
+      return;
+    }
+    setJudgeLocked(true);
+    setScreen("score");
+  };
+
+  // 🔐 ADMIN LOGIN
+  const adminLogin = ()=>{
+    if(adminPass === ADMIN_PASSWORD){
+      setScreen("admin");
+    } else {
+      alert("Wrong password");
+    }
+  };
+
+  // 🔥 SUBMIT
   const submit = async ()=>{
+
+    if(eventLocked){
+      alert("Event is locked");
+      return;
+    }
 
     if(saving) return;
     setSaving(true);
-
-    if(!eventName || !judgeName){
-      alert("Enter event + judge name");
-      setSaving(false);
-      return;
-    }
 
     if(!car && !driver && !rego && !carName){
       alert("Enter competitor");
@@ -70,8 +99,14 @@ export default function App(){
       return;
     }
 
+    if(Object.keys(scores).length === 0){
+      alert("Add scores");
+      setSaving(false);
+      return;
+    }
+
     const tyreScore = (tyres.left?5:0)+(tyres.right?5:0);
-    const deductionTotal = Object.values(deductions).filter(v=>v).length*10;
+    const deductionTotal = Object.values(deductions).filter(v=>v).length * 10;
     const baseScore = Object.values(scores).reduce((a,b)=>a+b,0);
 
     const finalScore = baseScore + tyreScore - deductionTotal;
@@ -85,15 +120,12 @@ export default function App(){
       time: Date.now()
     });
 
-    // RESET
+    // RESET CLEAN
     setScores({});
-    setTyres({left:false,right:false});
     setDeductions({});
+    setTyres({left:false,right:false});
     setCar(""); setDriver(""); setRego(""); setCarName("");
     setGender(""); setCarClass("");
-
-    setSavedFlash(true);
-    setTimeout(()=>setSavedFlash(false),800);
 
     setSaving(false);
   };
@@ -101,36 +133,47 @@ export default function App(){
   const sorted = [...entries].sort((a,b)=>b.finalScore - a.finalScore);
   const top30 = sorted.slice(0,30);
 
-  // GROUPED LEADERBOARD
-  const grouped = {};
-  sorted.forEach(e=>{
-    const key = `${e.carClass} - ${e.gender}`;
-    if(!grouped[key]) grouped[key]=[];
-    grouped[key].push(e);
-  });
-
-  // SETUP SCREEN
+  // SETUP
   if(screen==="setup"){
     return (
       <div style={{padding:20}}>
         <h2>Event Setup</h2>
 
-        <input placeholder="Event Name" value={eventName} onChange={e=>setEventName(e.target.value)} />
-        <input placeholder="Judge Name" value={judgeName} onChange={e=>setJudgeName(e.target.value)} />
+        <input placeholder="Event Name" value={eventName} onChange={e=>setEventName(e.target.value)} disabled={judgeLocked}/>
+        <input placeholder="Judge Name" value={judgeName} onChange={e=>setJudgeName(e.target.value)} disabled={judgeLocked}/>
 
-        <button onClick={()=>setScreen("score")}>Start Judging</button>
+        {!judgeLocked && <button onClick={lockJudge}>Lock & Start</button>}
+
+        <h3>Admin</h3>
+        <input type="password" placeholder="Password" onChange={e=>setAdminPass(e.target.value)} />
+        <button onClick={adminLogin}>Admin Login</button>
       </div>
     );
   }
 
-  // TOP 30 FINALS
+  // ADMIN PANEL
+  if(screen==="admin"){
+    return (
+      <div style={{padding:20}}>
+        <h2>Admin Panel</h2>
+
+        <button onClick={()=>setEventLocked(true)}>🔒 Lock Event</button>
+        <button onClick={()=>setEventLocked(false)}>🔓 Unlock Event</button>
+        <button onClick={()=>setScreen("score")}>Back</button>
+      </div>
+    );
+  }
+
+  // FINALS
   if(screen==="finals"){
     return (
       <div style={{padding:20}}>
         <h2>Top 30 Finals</h2>
 
         {top30.map((e,i)=>(
-          <div key={i}>#{i+1} | Car {e.car} | {e.finalScore}</div>
+          <div key={i}>
+            #{i+1} | Car {e.car} | {e.finalScore}
+          </div>
         ))}
 
         <button onClick={()=>setScreen("score")}>Back</button>
@@ -144,7 +187,7 @@ export default function App(){
 
       <h3>{eventName} | {judgeName}</h3>
 
-      {savedFlash && <div style={{color:"green"}}>✔ Saved</div>}
+      {eventLocked && <div style={{color:"red"}}>🔒 EVENT LOCKED</div>}
 
       <input placeholder="Car #" value={car} onChange={e=>setCar(e.target.value)} />
       <input placeholder="Driver" value={driver} onChange={e=>setDriver(e.target.value)} />
@@ -171,19 +214,14 @@ export default function App(){
         </div>
       ))}
 
-      <button onClick={submit}>{saving ? "Saving..." : "Submit"}</button>
+      <button onClick={submit}>{saving ? "Saving..." : "Submit & Next"}</button>
       <button onClick={()=>setScreen("finals")}>Top 30 Finals</button>
 
       <h2>Leaderboard</h2>
 
-      {Object.keys(grouped).map(group=>(
-        <div key={group}>
-          <h3>{group}</h3>
-          {grouped[group].slice(0,5).map((e,i)=>(
-            <div key={i}>
-              #{i+1} | Car {e.car} | {e.finalScore}
-            </div>
-          ))}
+      {sorted.slice(0,20).map((e,i)=>(
+        <div key={i}>
+          #{i+1} | Car {e.car} | {e.carClass} | {e.gender} | {e.finalScore}
         </div>
       ))}
 

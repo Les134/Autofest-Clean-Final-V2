@@ -1,4 +1,15 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { initializeApp } from "firebase/app";
+import { getFirestore, collection, addDoc, onSnapshot } from "firebase/firestore";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyB5NhDJMBwhMpUUL3XIHUnISTuCeQkXKS8",
+  authDomain: "autofest-burnout-judging-848fd.firebaseapp.com",
+  projectId: "autofest-burnout-judging-848fd"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
 
 const categories = [
   "Instant Smoke",
@@ -17,7 +28,6 @@ export default function App(){
 
   const [screen,setScreen] = useState("home");
   const [judge,setJudge] = useState("");
-
   const [entries,setEntries] = useState([]);
 
   const [car,setCar] = useState("");
@@ -32,6 +42,16 @@ export default function App(){
   const [deductions,setDeductions] = useState({});
   const [tyres,setTyres] = useState({left:false,right:false});
 
+  // 🔥 LIVE SYNC
+  useEffect(()=>{
+    const unsub = onSnapshot(collection(db,"scores"),(snapshot)=>{
+      const list = snapshot.docs.map(doc=>doc.data());
+      setEntries(list);
+    });
+
+    return ()=>unsub();
+  },[]);
+
   function setScore(cat,val){
     setScores(prev=>({...prev,[cat]:val}));
   }
@@ -44,7 +64,7 @@ export default function App(){
     setTyres(prev=>({...prev,[side]:!prev[side]}));
   }
 
-  function submit(){
+  async function submit(){
 
     if(!car && !driver && !rego && !carName){
       alert("Enter competitor");
@@ -65,10 +85,12 @@ export default function App(){
     const entry = {
       car, driver, rego, carName,
       gender, carClass,
-      finalScore
+      judge,
+      finalScore,
+      time: Date.now()
     };
 
-    setEntries(prev => [...prev, entry]);
+    await addDoc(collection(db,"scores"), entry);
 
     // RESET
     setScores({});
@@ -76,39 +98,14 @@ export default function App(){
     setTyres({left:false,right:false});
     setCar(""); setDriver(""); setRego(""); setCarName("");
     setGender(""); setCarClass("");
-
-    alert("Score Saved ✅");
   }
 
   function sorted(){
     return [...entries].sort((a,b)=>b.finalScore - a.finalScore);
   }
 
-  function top150(){
-    return sorted().slice(0,150);
-  }
-
-  function top30(){
-    return sorted().slice(0,30);
-  }
-
-  function classWinners(){
-    const grouped = {};
-
-    sorted().forEach(e=>{
-      if(!grouped[e.carClass]) grouped[e.carClass] = [];
-      grouped[e.carClass].push(e);
-    });
-
-    Object.keys(grouped).forEach(c=>{
-      grouped[c] = grouped[c].slice(0,3);
-    });
-
-    return grouped;
-  }
-
-  const btn = {padding:12,margin:6,borderRadius:6};
-  const active = {padding:12,margin:6,borderRadius:6,background:"red",color:"#fff"};
+  const btn = {padding:12,margin:6};
+  const active = {padding:12,margin:6,background:"red",color:"#fff"};
   const big = {padding:16,margin:10,background:"#000",color:"#fff"};
   const row = {marginBottom:20};
 
@@ -120,9 +117,6 @@ export default function App(){
 
         <button style={big} onClick={()=>setScreen("judges")}>Start Judging</button>
         <button style={big} onClick={()=>setScreen("leaderboard")}>Leaderboard</button>
-        <button style={big} onClick={()=>setScreen("top150")}>Top 150</button>
-        <button style={big} onClick={()=>setScreen("top30")}>Top 30 Finals</button>
-        <button style={big} onClick={()=>setScreen("winners")}>Class Winners</button>
       </div>
     );
   }
@@ -144,11 +138,11 @@ export default function App(){
   if(screen==="leaderboard"){
     return (
       <div style={{padding:20}}>
-        <h2>Leaderboard</h2>
+        <h2>Leaderboard (LIVE)</h2>
 
         {sorted().map((e,i)=>(
           <div key={i} style={row}>
-            #{i+1} | Car {e.car} | {e.driver} | {e.carClass} | {e.gender} | {e.finalScore}
+            #{i+1} | Car {e.car} | {e.carClass} | {e.gender} | {e.finalScore}
           </div>
         ))}
 
@@ -157,65 +151,7 @@ export default function App(){
     );
   }
 
-  // TOP 150
-  if(screen==="top150"){
-    return (
-      <div style={{padding:20}}>
-        <h2>Top 150</h2>
-
-        {top150().map((e,i)=>(
-          <div key={i} style={row}>
-            #{i+1} | Car {e.car} | {e.carClass} | {e.finalScore}
-          </div>
-        ))}
-
-        <button style={big} onClick={()=>setScreen("home")}>Home</button>
-      </div>
-    );
-  }
-
-  // TOP 30
-  if(screen==="top30"){
-    return (
-      <div style={{padding:20}}>
-        <h2>Top 30 Finals</h2>
-
-        {top30().map((e,i)=>(
-          <div key={i} style={row}>
-            #{i+1} | Car {e.car} | {e.carClass} | {e.finalScore}
-          </div>
-        ))}
-
-        <button style={big} onClick={()=>setScreen("home")}>Home</button>
-      </div>
-    );
-  }
-
-  // CLASS WINNERS
-  if(screen==="winners"){
-    const winners = classWinners();
-
-    return (
-      <div style={{padding:20}}>
-        <h2>Class Winners</h2>
-
-        {Object.keys(winners).map(c=>(
-          <div key={c}>
-            <h3>{c}</h3>
-            {winners[c].map((e,i)=>(
-              <div key={i}>
-                {["🥇","🥈","🥉"][i]} Car {e.car} - {e.finalScore}
-              </div>
-            ))}
-          </div>
-        ))}
-
-        <button style={big} onClick={()=>setScreen("home")}>Home</button>
-      </div>
-    );
-  }
-
-  // SCORING SCREEN
+  // SCORING
   return (
     <div style={{padding:20}}>
 
@@ -251,7 +187,7 @@ export default function App(){
       ))}
 
       <div style={row}>
-        <strong>Blown Tyres (5 pts each)</strong><br/>
+        <strong>Blown Tyres</strong><br/>
         <button style={tyres.left?active:btn} onClick={()=>toggleTyre("left")}>Left</button>
         <button style={tyres.right?active:btn} onClick={()=>toggleTyre("right")}>Right</button>
       </div>
@@ -266,7 +202,7 @@ export default function App(){
       </div>
 
       <button style={big} onClick={submit}>Submit</button>
-      <button style={big} onClick={()=>setScreen("home")}>Return Home</button>
+      <button style={big} onClick={()=>setScreen("home")}>Home</button>
 
     </div>
   );

@@ -17,7 +17,7 @@ const classes = [
 
 const deductionsList = ["Reversing", "Stopping", "Barrier", "Fire"];
 
-export default function App() {
+export default function App(){
 
   const [screen,setScreen] = useState("home");
 
@@ -63,7 +63,7 @@ export default function App() {
 
     setEntries([...entries, entry]);
 
-    // RESET
+    // RESET CLEAN
     setScores({});
     setDeductions({});
     setTyres({left:false,right:false});
@@ -89,12 +89,12 @@ export default function App() {
 
   const big={padding:18,margin:10,width:"100%",fontSize:18};
   const row={marginBottom:30};
-  const btn={padding:14,margin:6,borderRadius:6};
+  const btn={padding:14,margin:6,borderRadius:6,border:"1px solid #ccc"};
   const active={...btn,background:"red",color:"#fff"};
   const classActive={...btn,background:"green",color:"#fff"};
 
   const renderList = (list)=>list.map((e,i)=>(
-    <div key={i}>
+    <div key={i} style={{marginBottom:8}}>
       #{i+1} | Car {e.car} | {e.gender} | Score {e.finalScore}
     </div>
   ));
@@ -103,21 +103,23 @@ export default function App() {
   if(screen==="home"){
     return(
       <div style={{padding:20}}>
-        <h1>{eventName || "AutoFest System"}</h1>
+        <h1>🏁 AutoFest System</h1>
 
         <button style={big} onClick={()=>setScreen("setup")}>New Event</button>
 
-        {eventName && (
-          <>
-            <button style={big} onClick={()=>setScreen("judge")}>Judge Login</button>
-            <button style={big} onClick={()=>setScreen("score")}>Resume Judging</button>
-            <button style={big} onClick={()=>setScreen("leader")}>Leaderboard</button>
-            <button style={big} onClick={()=>setScreen("class")}>Class Leaderboard</button>
-            <button style={big} onClick={()=>setScreen("female")}>Female Overall</button>
-            <button style={big} onClick={()=>setScreen("top150")}>Top 150</button>
-            <button style={big} onClick={()=>setScreen("top30")}>Top 30 Finals</button>
-          </>
-        )}
+        <button style={big} onClick={()=>setScreen("judge")}>Judge Login</button>
+
+        <button style={big} onClick={()=>setScreen("score")}>Resume Judging</button>
+
+        <button style={big} onClick={()=>setScreen("leader")}>Leaderboard</button>
+
+        <button style={big} onClick={()=>setScreen("class")}>Class Leaderboard</button>
+
+        <button style={big} onClick={()=>setScreen("female")}>Female Overall</button>
+
+        <button style={big} onClick={()=>setScreen("top150")}>Top 150</button>
+
+        <button style={big} onClick={()=>setScreen("top30")}>Top 30 Finals</button>
       </div>
     );
   }
@@ -132,6 +134,7 @@ export default function App() {
           placeholder="Event Name"
           value={eventName}
           onChange={(e)=>setEventName(e.target.value)}
+          style={{padding:10,width:"100%",marginBottom:20}}
         />
 
         {judges.map((j,i)=>(
@@ -143,6 +146,7 @@ export default function App() {
               copy[i]=e.target.value;
               setJudges(copy);
             }}
+            style={{padding:10,width:"100%",marginBottom:10}}
           />
         ))}
 
@@ -165,6 +169,8 @@ export default function App() {
             {j}
           </button>
         ))}
+
+        <button style={big} onClick={()=>setScreen("home")}>Home</button>
       </div>
     );
   }
@@ -173,15 +179,22 @@ export default function App() {
   if(screen==="score"){
     return(
       <div style={{padding:20}}>
-        <h3>{activeJudge}</h3>
+        <h3>{activeJudge || "Judge"}</h3>
 
-        <input value={car} onChange={(e)=>setCar(e.target.value)} placeholder="Entrant No"/>
+        <input
+          value={car}
+          onChange={(e)=>setCar(e.target.value)}
+          placeholder="Entrant No"
+          style={{padding:10,width:"100%",marginBottom:20}}
+        />
 
+        {/* GENDER */}
         <div style={row}>
           <button style={gender==="Male"?active:btn} onClick={()=>setGender("Male")}>Male</button>
           <button style={gender==="Female"?active:btn} onClick={()=>setGender("Female")}>Female</button>
         </div>
 
+        {/* CLASS */}
         <div style={row}>
           {classes.map(c=>(
             <button key={c}
@@ -192,6 +205,7 @@ export default function App() {
           ))}
         </div>
 
+        {/* SCORES */}
         {categories.map(cat=>(
           <div key={cat} style={row}>
             <strong>{cat}</strong><br/>
@@ -205,14 +219,16 @@ export default function App() {
           </div>
         ))}
 
+        {/* TYRES */}
         <div style={row}>
-          <strong>Blown Tyres</strong><br/>
+          <strong>Blown Tyres (+5)</strong><br/>
           <button style={tyres.left?active:btn} onClick={()=>setTyres({...tyres,left:!tyres.left})}>Left</button>
           <button style={tyres.right?active:btn} onClick={()=>setTyres({...tyres,right:!tyres.right})}>Right</button>
         </div>
 
+        {/* DEDUCTIONS */}
         <div style={row}>
-          <strong>Deductions</strong><br/>
+          <strong>Deductions (-10)</strong><br/>
           {deductionsList.map(d=>(
             <button key={d}
               style={deductions[d]?active:btn}
@@ -226,26 +242,41 @@ export default function App() {
           {saving ? "Saving..." : "Submit & Next"}
         </button>
 
-        <button style={big} onClick={()=>setScreen("home")}>Home</button>
+        <button style={big} onClick={()=>setScreen("home")}>
+          Home
+        </button>
       </div>
     );
   }
 
   // ---------- LEADERBOARDS ----------
-  if(screen==="leader") return <div style={{padding:20}}>{renderList(sorted)}</div>;
-  if(screen==="top150") return <div style={{padding:20}}>{renderList(top150)}</div>;
-  if(screen==="top30") return <div style={{padding:20}}>{renderList(top30)}</div>;
-  if(screen==="female") return <div style={{padding:20}}>{renderList(female)}</div>;
+  if(screen==="leader"){
+    return <div style={{padding:20}}><h2>Leaderboard</h2>{renderList(sorted)}<button style={big} onClick={()=>setScreen("home")}>Home</button></div>;
+  }
+
+  if(screen==="top150"){
+    return <div style={{padding:20}}><h2>Top 150</h2>{renderList(top150)}<button style={big} onClick={()=>setScreen("home")}>Home</button></div>;
+  }
+
+  if(screen==="top30"){
+    return <div style={{padding:20}}><h2>Top 30 Finals</h2>{renderList(top30)}<button style={big} onClick={()=>setScreen("home")}>Home</button></div>;
+  }
+
+  if(screen==="female"){
+    return <div style={{padding:20}}><h2>Female Overall</h2>{renderList(female)}<button style={big} onClick={()=>setScreen("home")}>Home</button></div>;
+  }
 
   if(screen==="class"){
-    return(
+    return (
       <div style={{padding:20}}>
+        <h2>Class Leaderboard</h2>
         {Object.keys(grouped).map(k=>(
           <div key={k}>
             <h3>{k}</h3>
             {renderList(grouped[k])}
           </div>
         ))}
+        <button style={big} onClick={()=>setScreen("home")}>Home</button>
       </div>
     );
   }

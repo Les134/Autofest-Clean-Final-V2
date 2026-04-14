@@ -30,10 +30,9 @@ export default function App(){
   const [entries,setEntries] = useState([]);
   const [archivedEvents,setArchivedEvents] = useState([]);
 
-  const [saving,setSaving] = useState(false);
-
   const [eventName,setEventName] = useState("");
   const [eventActive,setEventActive] = useState(false);
+  const [locked,setLocked] = useState(false);
 
   const [judges,setJudges] = useState(["","","","","",""]);
   const [activeJudge,setActiveJudge] = useState("");
@@ -50,7 +49,8 @@ export default function App(){
   const [deductions,setDeductions] = useState({});
   const [tyres,setTyres] = useState({left:false,right:false});
 
-  // 🔥 CURRENT EVENT DATA ONLY
+  const [saving,setSaving] = useState(false);
+
   useEffect(()=>{
     if(!eventName){
       setEntries([]);
@@ -58,17 +58,14 @@ export default function App(){
     }
 
     const unsub = onSnapshot(collection(db,"scores"),(snap)=>{
-      const filtered = snap.docs
-        .map(doc=>doc.data())
+      const filtered = snap.docs.map(doc=>doc.data())
         .filter(e => e.eventName === eventName);
-
       setEntries(filtered);
     });
 
     return ()=>unsub();
   },[eventName]);
 
-  // 🔥 ARCHIVED EVENTS
   useEffect(()=>{
     const unsub = onSnapshot(collection(db,"archivedEvents"),(snap)=>{
       setArchivedEvents(snap.docs.map(doc=>doc.data()));
@@ -87,10 +84,12 @@ export default function App(){
 
     setJudges(valid);
     setEventActive(true);
+    setLocked(false);
     setScreen("judgeSelect");
   };
 
   const submit = async ()=>{
+    if(locked) return alert("Event Locked 🔒");
     if(saving) return;
     setSaving(true);
 
@@ -117,8 +116,6 @@ export default function App(){
   };
 
   const archiveEvent = async ()=>{
-    if(!eventName) return;
-
     await addDoc(collection(db,"archivedEvents"),{
       eventName,
       results: entries,
@@ -128,18 +125,36 @@ export default function App(){
     setEntries([]);
     setEventName("");
     setEventActive(false);
+    setLocked(false);
     setScreen("home");
+  };
 
-    alert("Event Archived ✅");
+  const exportResults = ()=>{
+    const rows = entries.map(e =>
+      `${e.car},${e.driver},${e.carClass},${e.gender},${e.finalScore}`
+    );
+    const csv = "Car,Driver,Class,Gender,Score\n" + rows.join("\n");
+    const blob = new Blob([csv]);
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `${eventName}.csv`;
+    a.click();
   };
 
   const sorted = [...entries].sort((a,b)=>b.finalScore - a.finalScore);
+  const top150 = sorted.slice(0,150);
+  const top30 = top150.slice(0,30);
 
   const grouped = {};
   sorted.forEach(e=>{
-    const key = `${e.carClass} - ${e.gender}`;
+    const key = `${e.carClass}-${e.gender}`;
     if(!grouped[key]) grouped[key]=[];
     grouped[key].push(e);
+  });
+
+  const classWinners = {};
+  Object.keys(grouped).forEach(k=>{
+    classWinners[k] = grouped[k].slice(0,3);
   });
 
   const big = {padding:18,margin:10,width:"100%",fontSize:18};
@@ -157,7 +172,6 @@ export default function App(){
   const deductionBtn = {padding:14,margin:6,background:"#555",color:"#fff"};
   const deductionActive = {padding:14,margin:6,background:"#b71c1c",color:"#fff"};
 
-  // 🏠 HOME
   if(screen==="home"){
     return (
       <div style={{padding:20}}>
@@ -171,6 +185,11 @@ export default function App(){
             <button style={big} onClick={()=>setScreen("score")}>Resume Judging</button>
             <button style={big} onClick={()=>setScreen("leader")}>Leaderboard</button>
             <button style={big} onClick={()=>setScreen("classLeader")}>Leaderboard by Class</button>
+            <button style={big} onClick={()=>setScreen("top150")}>Top 150</button>
+            <button style={big} onClick={()=>setScreen("top30")}>Top 30 Finals</button>
+            <button style={big} onClick={()=>setScreen("classWinners")}>Class Winners</button>
+            <button style={big} onClick={exportResults}>Export Results</button>
+            <button style={big} onClick={()=>setLocked(true)}>Lock Event</button>
             <button style={big} onClick={()=>setScreen("eventLog")}>Event Log</button>
           </>
         )}
@@ -178,78 +197,13 @@ export default function App(){
     );
   }
 
-  // EVENT LOG
-  if(screen==="eventLog"){
-    return (
-      <div style={{padding:20}}>
-        <h2>Archived Events</h2>
-
-        {archivedEvents.map((e,i)=>(
-          <div key={i} style={{marginBottom:20}}>
-            <strong>{e.eventName}</strong><br/>
-            <button onClick={()=>window.print()}>Print</button>
-          </div>
-        ))}
-
-        <button style={big} onClick={()=>setScreen("home")}>Home</button>
-      </div>
-    );
-  }
-
-  // SETUP
-  if(screen==="setup"){
-    return (
-      <div style={{padding:20}}>
-        <h2>Event Setup</h2>
-
-        <input placeholder="Event Name" value={eventName} onChange={e=>setEventName(e.target.value)} />
-
-        {judges.map((j,i)=>(
-          <input key={i} placeholder={`Judge ${i+1}`} value={j}
-            onChange={e=>{
-              const copy=[...judges];
-              copy[i]=e.target.value;
-              setJudges(copy);
-            }}
-          />
-        ))}
-
-        <button style={big} onClick={startEvent}>Start Event</button>
-      </div>
-    );
-  }
-
-  // JUDGE SELECT
-  if(screen==="judgeSelect"){
-    return (
-      <div style={{padding:20}}>
-        <h2>Select Judge</h2>
-
-        {judges.map((j,i)=>(
-          <button key={i} style={big} onClick={()=>{setActiveJudge(j);setScreen("score")}}>
-            {j}
-          </button>
-        ))}
-
-        <button style={big} onClick={()=>setScreen("home")}>Home</button>
-      </div>
-    );
-  }
-
-  // LEADERBOARD
   if(screen==="leader"){
     return (
       <div style={{padding:20}}>
         <h2>Leaderboard</h2>
-
-        {sorted.length === 0 && <p>No results yet</p>}
-
         {sorted.map((e,i)=>(
-          <div key={i}>
-            #{i+1} | Car {e.car} | {e.carClass} | {e.gender} | {e.finalScore}
-          </div>
+          <div key={i}>#{i+1} | Car {e.car} | {e.carClass} | {e.gender} | {e.finalScore}</div>
         ))}
-
         <button style={big} onClick={archiveEvent}>Archive Event</button>
         <button style={big} onClick={()=>window.print()}>Print</button>
         <button style={big} onClick={()=>setScreen("home")}>Home</button>
@@ -257,85 +211,45 @@ export default function App(){
     );
   }
 
-  // CLASS LEADERBOARD
-  if(screen==="classLeader"){
+  if(screen==="score"){
     return (
       <div style={{padding:20}}>
-        <h2>By Class</h2>
+        <h3>{eventName} | {activeJudge}</h3>
 
-        {Object.keys(grouped).map(group=>(
-          <div key={group}>
-            <h3>{group}</h3>
-            {grouped[group].map((e,i)=>(
-              <div key={i}>
-                #{i+1} | Car {e.car} | {e.finalScore}
-              </div>
+        <input placeholder="Car #" value={car} onChange={e=>setCar(e.target.value)} />
+
+        <div style={row}>
+          <button style={gender==="Male"?genderActive:genderBtn} onClick={()=>setGender("Male")}>Male</button>
+          <button style={gender==="Female"?genderActive:genderBtn} onClick={()=>setGender("Female")}>Female</button>
+        </div>
+
+        <div style={row}>
+          {classes.map(c=>(
+            <button key={c} style={carClass===c?classActive:classBtn} onClick={()=>setCarClass(c)}>
+              {c}
+            </button>
+          ))}
+        </div>
+
+        {categories.map(cat=>(
+          <div key={cat} style={row}>
+            <strong>{cat}</strong><br/>
+            {Array.from({length:21},(_,i)=>(
+              <button key={i} style={scores[cat]===i?scoreActive:scoreBtn} onClick={()=>setScore(cat,i)}>
+                {i}
+              </button>
             ))}
           </div>
         ))}
 
-        <button style={big} onClick={()=>window.print()}>Print</button>
+        <button style={big} onClick={submit}>
+          {saving ? "Saving..." : "Submit & Next"}
+        </button>
+
         <button style={big} onClick={()=>setScreen("home")}>Home</button>
       </div>
     );
   }
 
-  // SCOREBOARD
-  return (
-    <div style={{padding:20}}>
-
-      <h3>{eventName} | {activeJudge}</h3>
-
-      <input placeholder="Car #" value={car} onChange={e=>setCar(e.target.value)} />
-      <input placeholder="Driver" value={driver} onChange={e=>setDriver(e.target.value)} />
-      <input placeholder="Rego" value={rego} onChange={e=>setRego(e.target.value)} />
-      <input placeholder="Car Name" value={carName} onChange={e=>setCarName(e.target.value)} />
-
-      <div style={row}>
-        <button style={gender==="Male"?genderActive:genderBtn} onClick={()=>setGender("Male")}>Male</button>
-        <button style={gender==="Female"?genderActive:genderBtn} onClick={()=>setGender("Female")}>Female</button>
-      </div>
-
-      <div style={row}>
-        {classes.map(c=>(
-          <button key={c} style={carClass===c?classActive:classBtn} onClick={()=>setCarClass(c)}>
-            {c}
-          </button>
-        ))}
-      </div>
-
-      {categories.map(cat=>(
-        <div key={cat} style={row}>
-          <strong>{cat}</strong><br/>
-          {Array.from({length:21},(_,i)=>(
-            <button key={i} style={scores[cat]===i?scoreActive:scoreBtn} onClick={()=>setScore(cat,i)}>
-              {i}
-            </button>
-          ))}
-        </div>
-      ))}
-
-      <div style={row}>
-        <strong>Blown Tyres</strong><br/>
-        <button style={tyres.left?scoreActive:scoreBtn} onClick={()=>toggleTyre("left")}>Left</button>
-        <button style={tyres.right?scoreActive:scoreBtn} onClick={()=>toggleTyre("right")}>Right</button>
-      </div>
-
-      <div style={row}>
-        <strong>Deductions</strong><br/>
-        {deductionsList.map(d=>(
-          <button key={d} style={deductions[d]?deductionActive:deductionBtn} onClick={()=>toggleDeduction(d)}>
-            {d}
-          </button>
-        ))}
-      </div>
-
-      <button style={big} onClick={submit}>
-        {saving ? "Saving..." : "Submit & Next"}
-      </button>
-
-      <button style={big} onClick={()=>setScreen("home")}>Home</button>
-
-    </div>
-  );
+  return <div style={{padding:20}}>Loading...</div>;
 }

@@ -1,4 +1,18 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { initializeApp } from "firebase/app";
+import { getFirestore, collection, addDoc, onSnapshot } from "firebase/firestore";
+
+// 🔥 YOUR FIREBASE CONFIG
+const firebaseConfig = {
+  apiKey: "AIzaSyB5NhDJMBwhMpUUL3XIHUnISTuCeQkXKS8",
+  authDomain: "autofest-burnout-judging-848fd.firebaseapp.com",
+  projectId: "autofest-burnout-judging-848fd"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+// ============================
 
 const categories = [
   "Instant Smoke",
@@ -37,7 +51,22 @@ export default function App(){
 
   const [saving,setSaving] = useState(false);
 
-  // ---------- START EVENT ----------
+  // ============================
+  // 🔥 LIVE SYNC (NEW)
+  useEffect(()=>{
+    if(!eventName) return;
+
+    const unsub = onSnapshot(collection(db,"scores"),(snapshot)=>{
+      const data = snapshot.docs.map(doc => doc.data())
+        .filter(e=>e.eventName === eventName);
+
+      setEntries(data);
+    });
+
+    return ()=>unsub();
+  },[eventName]);
+  // ============================
+
   const startEvent = ()=>{
     const valid = judges.filter(j=>j.trim() !== "");
     if(!eventName) return alert("Enter event name");
@@ -47,8 +76,9 @@ export default function App(){
     setScreen("judgeSelect");
   };
 
-  // ---------- SUBMIT ----------
-  const submit = ()=>{
+  // ============================
+  // 🔥 UPDATED SUBMIT (FIREBASE)
+  const submit = async ()=>{
     if(saving) return;
 
     if(!car){
@@ -64,26 +94,32 @@ export default function App(){
 
     const finalScore = base + tyreScore - deductionTotal;
 
-    const entry = {
-      judge: activeJudge,
-      car,
-      gender,
-      carClass,
-      finalScore
-    };
+    try{
+      await addDoc(collection(db,"scores"),{
+        eventName,
+        judge: activeJudge,
+        car,
+        gender,
+        carClass,
+        finalScore,
+        time: Date.now()
+      });
 
-    setEntries(prev => [...prev, entry]);
+      // RESET
+      setScores({});
+      setDeductions({});
+      setTyres({left:false,right:false});
+      setCar("");
+      setGender("");
+      setCarClass("");
 
-    // RESET
-    setScores({});
-    setDeductions({});
-    setTyres({left:false,right:false});
-    setCar("");
-    setGender("");
-    setCarClass("");
+    } catch(err){
+      alert("Save failed");
+    }
 
     setSaving(false);
   };
+  // ============================
 
   // ---------- SORTING ----------
   const sorted = [...entries].sort((a,b)=>b.finalScore-a.finalScore);
@@ -116,19 +152,12 @@ export default function App(){
         <h1>🏁 AUTOFEST SERIES</h1>
 
         <button style={big} onClick={()=>setScreen("setup")}>New Event</button>
-
         <button style={big} onClick={()=>setScreen("judgeSelect")}>Judge Login</button>
-
         <button style={big} onClick={()=>setScreen("score")}>Resume Judging</button>
-
         <button style={big} onClick={()=>setScreen("leader")}>Leaderboard</button>
-
         <button style={big} onClick={()=>setScreen("class")}>Class Leaderboard</button>
-
         <button style={big} onClick={()=>setScreen("female")}>Female Overall</button>
-
         <button style={big} onClick={()=>setScreen("top150")}>Top 150</button>
-
         <button style={big} onClick={()=>setScreen("top30")}>Top 30 Finals</button>
       </div>
     );

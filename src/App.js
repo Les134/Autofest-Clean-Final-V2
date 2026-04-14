@@ -103,12 +103,16 @@ export default function App(){
   const top150 = sorted.slice(0,150);
   const top30 = top150.slice(0,30);
 
+  // 🔥 CLASS GROUPING (COMBINED)
   const grouped = {};
   sorted.forEach(e=>{
-    const key = `${e.carClass} - ${e.gender}`;
+    const key = e.carClass;
     if(!grouped[key]) grouped[key]=[];
     grouped[key].push(e);
   });
+
+  // 🔥 FEMALE OVERALL
+  const femaleOverall = sorted.filter(e=>e.gender==="Female");
 
   const big = {padding:18,margin:10,width:"100%",fontSize:18};
 
@@ -126,6 +130,7 @@ export default function App(){
             <button style={big} onClick={()=>setScreen("score")}>Resume Judging</button>
             <button style={big} onClick={()=>setScreen("leader")}>Leaderboard</button>
             <button style={big} onClick={()=>setScreen("classLeader")}>Leaderboard by Class</button>
+            <button style={big} onClick={()=>setScreen("femaleLeader")}>Female Overall</button>
             <button style={big} onClick={()=>setScreen("top150")}>Top 150</button>
             <button style={big} onClick={()=>setScreen("top30")}>Top 30 Finals</button>
           </>
@@ -140,17 +145,10 @@ export default function App(){
       <div style={{padding:20}}>
         <h2>Event Setup</h2>
 
-        <input
-          placeholder="Event Name"
-          value={eventName}
-          onChange={(e)=>setEventName(e.target.value)}
-        />
+        <input placeholder="Event Name" value={eventName} onChange={(e)=>setEventName(e.target.value)} />
 
         {judges.map((j,i)=>(
-          <input
-            key={i}
-            placeholder={`Judge ${i+1}`}
-            value={j}
+          <input key={i} placeholder={`Judge ${i+1}`} value={j}
             onChange={(e)=>{
               const copy=[...judges];
               copy[i]=e.target.value;
@@ -190,7 +188,7 @@ export default function App(){
 
         {sorted.map((e,i)=>(
           <div key={i}>
-            #{i+1} | Car {e.car} | {e.carClass} | {e.gender} | {e.finalScore}
+            #{i+1} | Entrant No {e.car} | {e.gender} | Score {e.finalScore}
           </div>
         ))}
 
@@ -209,9 +207,30 @@ export default function App(){
         {Object.keys(grouped).map(group=>(
           <div key={group}>
             <h3>{group}</h3>
-            {grouped[group].map((e,i)=>(
-              <div key={i}>#{i+1} | Car {e.car} | {e.finalScore}</div>
-            ))}
+            {grouped[group]
+              .sort((a,b)=>b.finalScore-a.finalScore)
+              .map((e,i)=>(
+                <div key={i}>
+                  #{i+1} | Entrant No {e.car} | {e.gender} | Score {e.finalScore}
+                </div>
+              ))}
+          </div>
+        ))}
+
+        <button style={big} onClick={()=>setScreen("home")}>Home</button>
+      </div>
+    );
+  }
+
+  // FEMALE OVERALL
+  if(screen==="femaleLeader"){
+    return (
+      <div style={{padding:20}}>
+        <h2>Female Overall</h2>
+
+        {femaleOverall.map((e,i)=>(
+          <div key={i}>
+            #{i+1} | Entrant No {e.car} | Score {e.finalScore}
           </div>
         ))}
 
@@ -226,7 +245,9 @@ export default function App(){
       <div style={{padding:20}}>
         <h2>Top 150</h2>
         {top150.map((e,i)=>(
-          <div key={i}>#{i+1} | Car {e.car} | {e.finalScore}</div>
+          <div key={i}>
+            #{i+1} | Entrant No {e.car} | Score {e.finalScore}
+          </div>
         ))}
         <button style={big} onClick={()=>setScreen("home")}>Home</button>
       </div>
@@ -239,7 +260,9 @@ export default function App(){
       <div style={{padding:20}}>
         <h2>Top 30 Finals</h2>
         {top30.map((e,i)=>(
-          <div key={i}>#{i+1} | Car {e.car} | {e.finalScore}</div>
+          <div key={i}>
+            #{i+1} | Entrant No {e.car} | Score {e.finalScore}
+          </div>
         ))}
         <button style={big} onClick={()=>setScreen("home")}>Home</button>
       </div>
@@ -266,7 +289,7 @@ export default function App(){
       <div style={{padding:20}}>
         <h3>{eventName} | {activeJudge}</h3>
 
-        <input value={car} onChange={(e)=>setCar(e.target.value)} placeholder="Car #" />
+        <input value={car} onChange={(e)=>setCar(e.target.value)} placeholder="Entrant No" />
 
         <div style={row}>
           <button style={gender==="Male"?genderActive:genderBtn} onClick={()=>setGender("Male")}>Male</button>
@@ -285,20 +308,17 @@ export default function App(){
           <div key={cat} style={row}>
             <strong>{cat}</strong><br/>
             {Array.from({length:21},(_,i)=>(
-              <button
-                key={i}
-                style={scores[cat]===i?scoreActive:scoreBtn}
-                onClick={()=>setScores({...scores,[cat]:i})}
-              >
+              <button key={i} style={scores[cat]===i?scoreActive:scoreBtn}
+                onClick={()=>setScores({...scores,[cat]:i})}>
                 {i}
               </button>
             ))}
           </div>
         ))}
 
-        {/* BLOWN TYRES */}
+        {/* TYRES */}
         <div style={row}>
-          <strong>Blown Tyres</strong><br/>
+          <strong>Blown Tyres (5 pts)</strong><br/>
           <button style={tyres.left?scoreActive:scoreBtn} onClick={()=>setTyres({...tyres,left:!tyres.left})}>Left</button>
           <button style={tyres.right?scoreActive:scoreBtn} onClick={()=>setTyres({...tyres,right:!tyres.right})}>Right</button>
         </div>
@@ -307,7 +327,8 @@ export default function App(){
         <div style={row}>
           <strong>Deductions</strong><br/>
           {deductionsList.map(d=>(
-            <button key={d} style={deductions[d]?deductionActive:deductionBtn} onClick={()=>setDeductions({...deductions,[d]:!deductions[d]})}>
+            <button key={d} style={deductions[d]?deductionActive:deductionBtn}
+              onClick={()=>setDeductions({...deductions,[d]:!deductions[d]})}>
               {d}
             </button>
           ))}

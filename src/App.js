@@ -11,6 +11,9 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
+// 🔒 ADMIN PIN
+const ADMIN_PIN = "1234";
+
 const categories = [
   "Instant Smoke",
   "Volume of Smoke",
@@ -45,6 +48,7 @@ export default function App(){
 
   const [saving,setSaving] = useState(false);
 
+  // 🔥 LIVE SYNC
   useEffect(()=>{
     if(!eventName){
       setEntries([]);
@@ -60,6 +64,7 @@ export default function App(){
     return ()=>unsub();
   },[eventName]);
 
+  // START EVENT
   const startEvent = ()=>{
     const valid = judges.filter(j=>j.trim() !== "");
     if(!eventName) return alert("Enter event name");
@@ -76,17 +81,18 @@ export default function App(){
     alert("Event Locked 🔒");
   };
 
+  // SUBMIT SCORE
   const submit = async ()=>{
     if(saving) return;
-    if(locked) return alert("Event is locked");
+    if(locked) return alert("Event locked");
 
     setSaving(true);
 
-    const baseScore = Object.values(scores).reduce((a,b)=>a+b,0);
-    const tyreScore = (tyres.left?5:0)+(tyres.right?5:0);
-    const deductionTotal = Object.values(deductions).filter(v=>v).length*10;
+    const base = Object.values(scores).reduce((a,b)=>a+b,0);
+    const tyresScore = (tyres.left?5:0)+(tyres.right?5:0);
+    const deductionsTotal = Object.values(deductions).filter(v=>v).length*10;
 
-    const finalScore = baseScore + tyreScore - deductionTotal;
+    const finalScore = base + tyresScore - deductionsTotal;
 
     await addDoc(collection(db,"scores"),{
       eventName,
@@ -98,6 +104,7 @@ export default function App(){
       time: Date.now()
     });
 
+    // RESET
     setScores({});
     setDeductions({});
     setTyres({left:false,right:false});
@@ -123,6 +130,14 @@ export default function App(){
 
   const big = {padding:18,margin:10,width:"100%",fontSize:18};
 
+  const renderList = (list)=>list.map((e,i)=>(
+    <div key={i}>
+      #{i+1} | Entrant No {e.car} | {e.gender} | Score {e.finalScore}
+    </div>
+  ));
+
+  const printBtn = <button style={big} onClick={()=>window.print()}>Print</button>;
+
   // HOME
   if(screen==="home"){
     return (
@@ -130,6 +145,13 @@ export default function App(){
         <h1>{eventName || "AutoFest System"}</h1>
 
         <button style={big} onClick={()=>setScreen("setup")}>New Event</button>
+
+        <button style={big} onClick={()=>{
+          const pin = prompt("Admin PIN");
+          if(pin===ADMIN_PIN) setScreen("admin");
+        }}>
+          Admin Panel
+        </button>
 
         {eventActive && (
           <>
@@ -140,9 +162,21 @@ export default function App(){
             <button style={big} onClick={()=>setScreen("femaleLeader")}>Female Overall</button>
             <button style={big} onClick={()=>setScreen("top150")}>Top 150</button>
             <button style={big} onClick={()=>setScreen("top30")}>Top 30 Finals</button>
+            <button style={big} onClick={()=>setScreen("tv")}>Live Screen</button>
             <button style={big} onClick={lockEvent}>Lock Event</button>
           </>
         )}
+      </div>
+    );
+  }
+
+  // ADMIN
+  if(screen==="admin"){
+    return (
+      <div style={{padding:20}}>
+        <h2>Admin Panel</h2>
+        <button style={big} onClick={lockEvent}>Lock Event</button>
+        <button style={big} onClick={()=>setScreen("home")}>Back</button>
       </div>
     );
   }
@@ -176,40 +210,30 @@ export default function App(){
     return (
       <div style={{padding:20}}>
         <h2>Select Judge</h2>
-
         {judges.map((j,i)=>(
           <button key={i} style={big} onClick={()=>{setActiveJudge(j);setScreen("score")}}>
             {j}
           </button>
         ))}
-
         <button style={big} onClick={()=>setScreen("home")}>Home</button>
       </div>
     );
   }
 
-  const renderList = (list)=>list.map((e,i)=>(
-    <div key={i}>
-      #{i+1} | Entrant No {e.car} | {e.gender} | Score {e.finalScore}
-    </div>
-  ));
-
-  const printBtn = <button style={big} onClick={()=>window.print()}>Print</button>;
-
+  // LEADERBOARDS
   if(screen==="leader") return <div style={{padding:20}}><h2>Leaderboard</h2>{renderList(sorted)}{printBtn}<button style={big} onClick={()=>setScreen("home")}>Home</button></div>;
   if(screen==="top150") return <div style={{padding:20}}><h2>Top 150</h2>{renderList(top150)}{printBtn}<button style={big} onClick={()=>setScreen("home")}>Home</button></div>;
-  if(screen==="top30") return <div style={{padding:20}}><h2>Top 30 Finals</h2>{renderList(top30)}{printBtn}<button style={big} onClick={()=>setScreen("home")}>Home</button></div>;
-
+  if(screen==="top30") return <div style={{padding:20}}><h2>Top 30</h2>{renderList(top30)}{printBtn}<button style={big} onClick={()=>setScreen("home")}>Home</button></div>;
   if(screen==="femaleLeader") return <div style={{padding:20}}><h2>Female Overall</h2>{renderList(femaleOverall)}{printBtn}<button style={big} onClick={()=>setScreen("home")}>Home</button></div>;
 
   if(screen==="classLeader"){
     return (
       <div style={{padding:20}}>
-        <h2>Leaderboard by Class</h2>
-        {Object.keys(grouped).map(group=>(
-          <div key={group}>
-            <h3>{group}</h3>
-            {renderList(grouped[group].sort((a,b)=>b.finalScore-a.finalScore))}
+        <h2>Class Leaderboard</h2>
+        {Object.keys(grouped).map(g=>(
+          <div key={g}>
+            <h3>{g}</h3>
+            {renderList(grouped[g].sort((a,b)=>b.finalScore-a.finalScore))}
           </div>
         ))}
         {printBtn}
@@ -218,17 +242,32 @@ export default function App(){
     );
   }
 
-  // SCOREBOARD (unchanged working UI)
+  // TV
+  if(screen==="tv"){
+    return (
+      <div style={{padding:40,background:"#000",color:"#fff",minHeight:"100vh"}}>
+        <h1>LIVE</h1>
+        {sorted.slice(0,10).map((e,i)=>(
+          <div key={i} style={{fontSize:30}}>
+            #{i+1} Car {e.car} - {e.finalScore}
+          </div>
+        ))}
+        <button style={big} onClick={()=>setScreen("home")}>Exit</button>
+      </div>
+    );
+  }
+
+  // SCORE
   if(screen==="score"){
-    const row = {marginBottom:30};
-    const btn = {padding:14,margin:6};
-    const active = {padding:14,margin:6,background:"red",color:"#fff"};
+    const row={marginBottom:30};
+    const btn={padding:14,margin:6};
+    const active={padding:14,margin:6,background:"red",color:"#fff"};
 
     return (
       <div style={{padding:20}}>
         <h3>{eventName} | {activeJudge}</h3>
 
-        <input value={car} onChange={(e)=>setCar(e.target.value)} placeholder="Entrant No" />
+        <input value={car} onChange={(e)=>setCar(e.target.value)} placeholder="Entrant No"/>
 
         <div style={row}>
           <button style={gender==="Male"?active:btn} onClick={()=>setGender("Male")}>Male</button>
@@ -237,9 +276,7 @@ export default function App(){
 
         <div style={row}>
           {classes.map(c=>(
-            <button key={c} style={carClass===c?active:btn} onClick={()=>setCarClass(c)}>
-              {c}
-            </button>
+            <button key={c} style={carClass===c?active:btn} onClick={()=>setCarClass(c)}>{c}</button>
           ))}
         </div>
 

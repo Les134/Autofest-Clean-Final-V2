@@ -68,10 +68,8 @@ export default function App(){
     }));
   },[entries,eventName,judges,eventLocked]);
 
-  // PRINT
   const printResults = () => window.print();
 
-  // START EVENT
   const startEvent = ()=>{
     const valid = judges.filter(j=>j.trim() !== "");
     if(!eventName) return alert("Enter event name");
@@ -81,7 +79,7 @@ export default function App(){
     setScreen("judge");
   };
 
-  // SUBMIT (UNCHANGED LOGIC + LOCK CHECK)
+  // SUBMIT
   const submit = ()=>{
     if(saving) return;
     if(eventLocked) return alert("Event is locked");
@@ -118,6 +116,7 @@ export default function App(){
       }]);
     }
 
+    // RESET
     setScores({});
     setDeductions({});
     setTyres({left:false,right:false});
@@ -126,7 +125,6 @@ export default function App(){
     setCarClass("");
   };
 
-  // EDIT
   const editEntry = (e)=>{
     if(eventLocked) return alert("Event locked");
     setEditingCar(e.car);
@@ -136,7 +134,6 @@ export default function App(){
     setScreen("score");
   };
 
-  // ARCHIVE
   const archiveEvent = ()=>{
     if(!eventLocked) return alert("Lock event first");
 
@@ -178,28 +175,19 @@ export default function App(){
     </div>
   ));
 
-  // REUSABLE LEADERBOARD SCREEN
   const board = (title,list)=>(
     <div style={{padding:20}}>
       <h2>{title}</h2>
       {renderList(list)}
 
       <button style={big} onClick={printResults}>Print</button>
-
       <button style={{...big,background:"black",color:"#fff"}}
-        onClick={()=>setEventLocked(true)}>
-        🔒 Lock Event
-      </button>
-
-      <button style={big} onClick={archiveEvent}>
-        Archive Event
-      </button>
-
+        onClick={()=>setEventLocked(true)}>🔒 Lock Event</button>
+      <button style={big} onClick={archiveEvent}>Archive Event</button>
       <button style={big} onClick={()=>setScreen("home")}>Home</button>
     </div>
   );
 
-  // HOME
   if(screen==="home"){
     return(
       <div style={{padding:20}}>
@@ -218,7 +206,6 @@ export default function App(){
     );
   }
 
-  // SETUP
   if(screen==="setup"){
     return(
       <div style={{padding:20}}>
@@ -243,7 +230,6 @@ export default function App(){
     );
   }
 
-  // JUDGE LOGIN
   if(screen==="judge"){
     return(
       <div style={{padding:20}}>
@@ -261,7 +247,6 @@ export default function App(){
     );
   }
 
-  // SCORE
   if(screen==="score"){
     return(
       <div style={{padding:20}}>
@@ -297,6 +282,24 @@ export default function App(){
           </div>
         ))}
 
+        {/* 🔥 RESTORED SECTIONS */}
+        <div style={row}>
+          <strong>Blown Tyres (+5)</strong><br/>
+          <button style={tyres.left?active:btn} onClick={()=>setTyres({...tyres,left:!tyres.left})}>Left</button>
+          <button style={tyres.right?active:btn} onClick={()=>setTyres({...tyres,right:!tyres.right})}>Right</button>
+        </div>
+
+        <div style={row}>
+          <strong>Deductions (-10)</strong><br/>
+          {deductionsList.map(d=>(
+            <button key={d}
+              style={deductions[d]?active:btn}
+              onClick={()=>setDeductions({...deductions,[d]:!deductions[d]})}>
+              {d}
+            </button>
+          ))}
+        </div>
+
         <button style={big} onClick={submit}>
           {editingCar ? "Save Edit" : "Submit & Next"}
         </button>
@@ -306,7 +309,6 @@ export default function App(){
     );
   }
 
-  // BOARDS
   if(screen==="leader") return board("Leaderboard",sorted);
   if(screen==="top150") return board("Top 150",top150);
   if(screen==="top30") return board("Top 30 Finals",top30);
@@ -331,7 +333,6 @@ export default function App(){
     );
   }
 
-  // ARCHIVE SCREEN
   if(screen==="archive"){
     return(
       <div style={{padding:20}}>

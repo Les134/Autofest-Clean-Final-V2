@@ -1,11 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { db } from "./firebase";
-import {
-  collection,
-  addDoc,
-  onSnapshot,
-  getDocs
-} from "firebase/firestore";
+import { collection, addDoc, onSnapshot } from "firebase/firestore";
 
 const categories = [
   "Instant Smoke",
@@ -15,11 +10,7 @@ const categories = [
 ];
 
 const classes = [
-  "V8 Pro",
-  "V8 N/A",
-  "6 Cyl Pro",
-  "6 Cyl N/A",
-  "4Cyl Open/Rotary"
+  "V8 Pro","V8 N/A","6 Cyl Pro","6 Cyl N/A","4Cyl Open/Rotary"
 ];
 
 const deductionsList = ["Reversing","Stopping","Barrier","Fire"];
@@ -28,7 +19,6 @@ export default function App(){
 
   const [screen,setScreen] = useState("home");
   const [entries,setEntries] = useState([]);
-  const [archived,setArchived] = useState([]);
 
   const [eventName,setEventName] = useState("");
   const [eventLocked,setEventLocked] = useState(false);
@@ -44,7 +34,7 @@ export default function App(){
   const [deductions,setDeductions] = useState({});
   const [tyres,setTyres] = useState({left:false,right:false});
 
-  // 🔥 LIVE DATA
+  // 🔥 LIVE SYNC
   useEffect(()=>{
     const unsub = onSnapshot(collection(db,"scores"), snap=>{
       setEntries(snap.docs.map(doc=>doc.data()));
@@ -52,29 +42,23 @@ export default function App(){
     return ()=>unsub();
   },[]);
 
-  // 🔥 LOAD ARCHIVE
-  useEffect(()=>{
-    const loadArchive = async ()=>{
-      const snap = await getDocs(collection(db,"archive"));
-      setArchived(snap.docs.map(d=>d.data()));
-    };
-    loadArchive();
-  },[]);
-
   const startEvent = ()=>{
     const valid = judges.filter(j=>j.trim() !== "");
     if(!eventName) return alert("Enter event name");
-    if(valid.length === 0) return alert("Add judge");
+    if(valid.length === 0) return alert("Add at least 1 judge");
 
     setJudges(valid);
     setScreen("judge");
   };
 
-  // 🔥 SUBMIT
   const submit = async ()=>{
     if(eventLocked) return alert("Event is LOCKED");
 
     if(!car || !gender || !carClass) return alert("Complete all fields");
+
+    if(Object.keys(scores).length !== categories.length){
+      return alert("Score all categories");
+    }
 
     const base = Object.values(scores).reduce((a,b)=>a+b,0);
     const tyreScore = (tyres.left?5:0)+(tyres.right?5:0);
@@ -97,30 +81,22 @@ export default function App(){
     setCarClass("");
   };
 
-  // 🔒 LOCK EVENT
   const lockEvent = ()=>{
-    if(window.confirm("Lock event? No more scores allowed")){
+    if(window.confirm("Lock event?")){
       setEventLocked(true);
     }
   };
 
-  // 🗂 ARCHIVE EVENT
   const archiveEvent = async ()=>{
-    if(entries.length === 0) return alert("No results");
-
     await addDoc(collection(db,"archive"),{
       eventName,
       results: entries,
       created: new Date().toISOString()
     });
-
-    alert("Event Archived ✅");
+    alert("Archived ✅");
   };
 
-  // 🖨 PRINT
-  const printResults = ()=>{
-    window.print();
-  };
+  const printResults = ()=> window.print();
 
   const sorted = [...entries].sort((a,b)=>b.finalScore-a.finalScore);
 
@@ -128,24 +104,29 @@ export default function App(){
     <div key={i}>
       #{i+1} | Car {e.car} | {e.gender}
       {e.deductions?.length>0 && (
-        <span style={{color:"red"}}> | Less {e.deductions.join(", ")}</span>
+        <> | Less Deduction {e.deductions.join(", ")}</>
       )}
       {" "} - Score {e.finalScore}
     </div>
   ));
 
+  const grouped = classes.reduce((acc,c)=>{
+    acc[c] = entries.filter(e=>e.carClass === c)
+      .sort((a,b)=>b.finalScore-a.finalScore);
+    return acc;
+  },{});
+
   const big={padding:18,margin:10,width:"100%"};
-  const btn={padding:10,margin:5};
 
   // HOME
   if(screen==="home"){
     return(
       <div style={{padding:20}}>
-        <h1>🔥 AUTOFEST LIVE 🔥</h1>
+        <h1>🔥 AUTOFEST 🔥</h1>
 
         <button style={big} onClick={()=>setScreen("setup")}>New Event</button>
         <button style={big} onClick={()=>setScreen("leader")}>Leaderboard</button>
-        <button style={big} onClick={()=>setScreen("archive")}>Archive</button>
+        <button style={big} onClick={()=>setScreen("classes")}>Class Leaderboards</button>
       </div>
     );
   }
@@ -158,16 +139,18 @@ export default function App(){
         {judges.map((j,i)=>(
           <input key={i} placeholder={`Judge ${i+1}`}
             onChange={e=>{
-              const c=[...judges]; c[i]=e.target.value; setJudges(c);
+              const copy=[...judges];
+              copy[i]=e.target.value;
+              setJudges(copy);
             }}
           />
         ))}
-        <button onClick={startEvent}>Start</button>
+        <button onClick={startEvent}>Start Event</button>
       </div>
     );
   }
 
-  // JUDGES
+  // JUDGE
   if(screen==="judge"){
     return(
       <div style={{padding:20}}>
@@ -222,36 +205,39 @@ export default function App(){
     );
   }
 
-  // LEADERBOARD
+  // MAIN LEADERBOARD (UNCHANGED)
   if(screen==="leader"){
     return(
       <div style={{padding:20}}>
         <h2>Leaderboard</h2>
+
         {renderList(sorted)}
 
-        <button onClick={lockEvent}>🔒 Lock Event</button>
-        <button onClick={archiveEvent}>🗂 Archive</button>
-        <button onClick={printResults}>🖨 Print</button>
+        <div style={{marginTop:20}}>
+          <button onClick={lockEvent}>🔒 Lock</button>
+          <button onClick={archiveEvent}>🗂 Archive</button>
+          <button onClick={printResults}>🖨 Print</button>
+        </div>
 
         <button style={big} onClick={()=>setScreen("home")}>Home</button>
       </div>
     );
   }
 
-  // ARCHIVE VIEW
-  if(screen==="archive"){
+  // CLASS LEADERBOARD (NEW SCREEN)
+  if(screen==="classes"){
     return(
       <div style={{padding:20}}>
-        <h2>Archived Events</h2>
+        <h2>Class Leaderboards</h2>
 
-        {archived.map((a,i)=>(
-          <div key={i}>
-            <strong>{a.eventName}</strong>
-            <div>{a.results.length} entries</div>
+        {classes.map(c=>(
+          <div key={c} style={{marginBottom:20}}>
+            <h3>{c}</h3>
+            {renderList(grouped[c])}
           </div>
         ))}
 
-        <button onClick={()=>setScreen("home")}>Home</button>
+        <button style={big} onClick={()=>setScreen("home")}>Home</button>
       </div>
     );
   }

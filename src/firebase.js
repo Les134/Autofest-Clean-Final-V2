@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
+import { getFirestore, enableIndexedDbPersistence } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCuvxgmnpr8EVRAN9y-AJCWGVOf0xi7sxk",
@@ -11,4 +11,10 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app);
+const db = getFirestore(app);
+
+enableIndexedDbPersistence(db).catch(() => {
+  console.log("Offline persistence not available");
+});
+
+export { db };

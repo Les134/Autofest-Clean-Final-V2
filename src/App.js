@@ -58,7 +58,7 @@ export default function App(){
     setScreen("judge");
   };
 
-  // 🔥 SUBMIT (FINAL FIXED VERSION)
+  // 🔥 FINAL SUBMIT (FIXED)
   const submit = async ()=>{
 
     console.log("SUBMIT CLICKED");
@@ -79,21 +79,23 @@ export default function App(){
     const finalScore = base + tyreScore - deductionTotal;
 
     try {
-      await addDoc(collection(db,"scores"),{
-        car,
-        gender,
-        carClass,
-        finalScore,
-        deductions: activeDeductions,
-        judge: activeJudge,
-        created: new Date()
+
+      const docRef = await addDoc(collection(db,"scores"),{
+        car: String(car),
+        gender: String(gender),
+        carClass: String(carClass),
+        finalScore: Number(finalScore),
+        deductions: activeDeductions || [],
+        judge: activeJudge || "Unknown",
+        created: new Date().toISOString()
       });
 
-      console.log("SUCCESS WRITTEN TO FIREBASE");
+      console.log("✅ FIREBASE WRITE SUCCESS:", docRef.id);
+      alert("Score Saved ✅");
 
     } catch (err) {
-      console.error("FIREBASE ERROR:", err);
-      alert("Error saving score");
+      console.error("❌ FIREBASE ERROR:", err);
+      alert("Error saving score - check console");
     }
 
     // RESET
@@ -130,7 +132,7 @@ export default function App(){
   if(screen==="home"){
     return(
       <div style={{padding:20}}>
-        <h1>🏁 AUTOFEST SERIES</h1>
+        <h1>🔥 AUTOFEST LIVE SYNC 🔥</h1>
 
         <button style={big} onClick={()=>setScreen("setup")}>New Event</button>
         <button style={big} onClick={()=>setScreen("judge")}>Judge Login</button>

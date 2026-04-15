@@ -34,11 +34,9 @@ export default function App(){
   const [deductions,setDeductions] = useState({});
   const [tyres,setTyres] = useState({left:false,right:false});
 
-  // SAFE LIVE SYNC
   useEffect(()=>{
     const unsub = onSnapshot(collection(db,"scores"), snap=>{
-      const data = snap.docs.map(doc=>doc.data());
-      setEntries(data || []);
+      setEntries(snap.docs.map(doc=>doc.data()) || []);
     });
     return ()=>unsub();
   },[]);
@@ -46,16 +44,16 @@ export default function App(){
   const startEvent = ()=>{
     const valid = judges.filter(j=>j.trim() !== "");
     if(!eventName) return alert("Enter event name");
-    if(valid.length === 0) return alert("Add at least 1 judge");
+    if(valid.length === 0) return alert("Add judge");
 
     setJudges(valid);
     setScreen("judge");
   };
 
   const submit = async ()=>{
-    if(eventLocked) return alert("Event is LOCKED");
+    if(eventLocked) return alert("Event locked");
 
-    if(!car || !gender || !carClass) return alert("Complete all fields");
+    if(!car || !gender || !carClass) return alert("Complete fields");
 
     if(Object.keys(scores).length !== categories.length){
       return alert("Score all categories");
@@ -67,9 +65,7 @@ export default function App(){
     const finalScore = base + tyreScore - (activeDeductions.length*10);
 
     await addDoc(collection(db,"scores"),{
-      car,
-      gender,
-      carClass,
+      car, gender, carClass,
       finalScore,
       deductions: activeDeductions,
       judge: activeJudge,
@@ -84,20 +80,10 @@ export default function App(){
     setCarClass("");
   };
 
-  const lockEvent = ()=> setEventLocked(true);
-  const archiveEvent = async ()=>{
-    await addDoc(collection(db,"archive"),{
-      eventName,
-      results: entries
-    });
-  };
-
-  const printResults = ()=> window.print();
-
   const sorted = [...entries].sort((a,b)=>b.finalScore-a.finalScore);
 
   const renderList = (list)=>(
-    (list || []).map((e,i)=>(
+    (list||[]).map((e,i)=>(
       <div key={i}>
         #{i+1} | Car {e.car} | {e.gender}
         {e.deductions?.length>0 && (
@@ -110,8 +96,7 @@ export default function App(){
 
   const grouped = {};
   classes.forEach(c=>{
-    grouped[c] = (entries || [])
-      .filter(e=>e.carClass === c)
+    grouped[c] = entries.filter(e=>e.carClass===c)
       .sort((a,b)=>b.finalScore-a.finalScore);
   });
 
@@ -189,13 +174,7 @@ export default function App(){
     return(
       <div style={{padding:20}}>
         <h2>Leaderboard</h2>
-
         {renderList(sorted)}
-
-        <button onClick={lockEvent}>🔒 Lock</button>
-        <button onClick={archiveEvent}>🗂 Archive</button>
-        <button onClick={printResults}>🖨 Print</button>
-
         <button style={big} onClick={()=>setScreen("home")}>Home</button>
       </div>
     );
@@ -205,14 +184,12 @@ export default function App(){
     return(
       <div style={{padding:20}}>
         <h2>Class Leaderboards</h2>
-
         {classes.map(c=>(
           <div key={c}>
             <h3>{c}</h3>
             {renderList(grouped[c])}
           </div>
         ))}
-
         <button style={big} onClick={()=>setScreen("home")}>Home</button>
       </div>
     );

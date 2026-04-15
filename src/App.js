@@ -26,8 +26,6 @@ export default function App(){
   const [activeJudge,setActiveJudge] = useState("");
 
   const [entries,setEntries] = useState([]);
-  const [archive,setArchive] = useState([]);
-
   const [eventLocked,setEventLocked] = useState(false);
 
   const [car,setCar] = useState("");
@@ -44,7 +42,7 @@ export default function App(){
 
   const carInputRef = useRef(null);
 
-  // LOAD
+  // LOAD / SAVE
   useEffect(()=>{
     const data = localStorage.getItem("autofestData");
     if(data){
@@ -54,14 +52,8 @@ export default function App(){
       setJudges(parsed.judges || []);
       setEventLocked(parsed.eventLocked || false);
     }
-
-    const storedArchive = localStorage.getItem("autofestArchive");
-    if(storedArchive){
-      setArchive(JSON.parse(storedArchive));
-    }
   },[]);
 
-  // SAVE
   useEffect(()=>{
     localStorage.setItem("autofestData", JSON.stringify({
       entries,
@@ -71,8 +63,7 @@ export default function App(){
     }));
   },[entries,eventName,judges,eventLocked]);
 
-  const printResults = () => window.print();
-
+  // START EVENT
   const startEvent = ()=>{
     const valid = judges.filter(j=>j.trim() !== "");
     if(!eventName) return alert("Enter event name");
@@ -82,24 +73,13 @@ export default function App(){
     setScreen("judge");
   };
 
-  // 🚫 DUPLICATE PROTECTION
-  const checkDuplicate = () => {
-    const exists = entries.find(e => e.car === car);
-    if(exists && !editingCar){
-      return window.confirm("Car already exists. Add another run?");
-    }
-    return true;
-  };
-
-  // SUBMIT
+  // SUBMIT (SAFE)
   const submit = () => {
     if (saving) return;
     if (eventLocked) return alert("Event is locked");
     if (!car) return alert("Enter entrant number");
     if (!gender) return alert("Select gender");
     if (!carClass) return alert("Select class");
-
-    if (!checkDuplicate()) return;
 
     if (Object.keys(scores).length !== categories.length) {
       return alert("Score all categories");
@@ -115,9 +95,9 @@ export default function App(){
     const judgeTotal = base + tyreScore - deductionTotal;
 
     setEntries((prev) => {
-      const existing = prev.find((e) => e.car === car);
+      const index = prev.findIndex(e => e.car === car);
 
-      if (!existing) {
+      if (index === -1) {
         return [
           ...prev,
           {
@@ -125,71 +105,61 @@ export default function App(){
             gender,
             carClass,
             runs: [
-              {
-                judgeScores: {
-                  [activeJudge]: judgeTotal
-                }
-              }
+              { judgeScores: { [activeJudge]: judgeTotal } }
             ]
           }
         ];
       }
 
-      // PRESERVE DATA
-      existing.gender = existing.gender || gender;
-      existing.carClass = existing.carClass || carClass;
+      const updated = [...prev];
+      const entry = { ...updated[index] };
+      const runs = [...entry.runs];
 
-      const lastRun = existing.runs[existing.runs.length - 1];
+      const lastRun = { ...runs[runs.length - 1] };
 
       if (lastRun.judgeScores[activeJudge] !== undefined) {
-        existing.runs.push({
-          judgeScores: {
-            [activeJudge]: judgeTotal
-          }
+        runs.push({
+          judgeScores: { [activeJudge]: judgeTotal }
         });
       } else {
-        lastRun.judgeScores[activeJudge] = judgeTotal;
+        lastRun.judgeScores = {
+          ...lastRun.judgeScores,
+          [activeJudge]: judgeTotal
+        };
+        runs[runs.length - 1] = lastRun;
       }
 
-      return [...prev];
+      entry.runs = runs;
+      updated[index] = entry;
+
+      return updated;
     });
 
     // RESET
     setScores({});
     setDeductions({});
-    setTyres({ left: false, right: false });
+    setTyres({ left:false,right:false });
     setCar("");
     setGender("");
     setCarClass("");
     setSaving(false);
 
-    window.scrollTo(0,0);
-
-    setTimeout(()=>{
-      if(carInputRef.current){
-        carInputRef.current.focus();
-      }
-    },100);
+    setTimeout(()=>carInputRef.current?.focus(),100);
   };
 
-  // ✏️ EDIT ENTRY
-  const editEntry = (entry) => {
-    if(eventLocked) return alert("Event locked");
-
-    setEditingCar(entry.car);
-    setCar(entry.car);
-    setGender(entry.gender);
-    setCarClass(entry.carClass);
+  // EDIT
+  const editEntry = (e)=>{
+    setEditingCar(e.car);
+    setCar(e.car);
+    setGender(e.gender);
+    setCarClass(e.carClass);
     setScreen("score");
   };
 
-  // 💾 SAVE EDIT
-  const saveEdit = () => {
+  const saveEdit = ()=>{
     setEntries(prev =>
       prev.map(e =>
-        e.car === editingCar
-          ? { ...e, gender, carClass }
-          : e
+        e.car === editingCar ? { ...e, gender, carClass } : e
       )
     );
 
@@ -201,88 +171,69 @@ export default function App(){
   };
 
   // TOTALS
-  const calculated = entries.map((e) => {
+  const calculated = entries.map(e=>{
     let total = 0;
-    e.runs.forEach((run) => {
-      Object.values(run.judgeScores).forEach((score) => {
-        total += score;
-      });
+    e.runs.forEach(r=>{
+      Object.values(r.judgeScores).forEach(s=>total+=s);
     });
     return { ...e, finalScore: total };
   });
 
   const sorted = [...calculated].sort((a,b)=>b.finalScore-a.finalScore);
 
-  const top150 = sorted.slice(0,150);
-  const top30 = top150.slice(0,30);
-  const female = sorted.filter(e=>e.gender==="Female");
+  // UI
+  const big={padding:16,margin:6};
 
-  const grouped = {};
-  sorted.forEach(e=>{
-    if(!grouped[e.carClass]) grouped[e.carClass]=[];
-    grouped[e.carClass].push(e);
-  });
-
-  const big={padding:18,margin:10,width:"100%",fontSize:18};
-  const btn={padding:10,margin:4};
-
-  const renderList = (list)=>list.map((e,i)=>(
+  const renderList = list => list.map((e,i)=>(
     <div key={i}>
       #{i+1} | Car {e.car} | {e.gender} | Score {e.finalScore}
-      <button style={btn} onClick={()=>editEntry(e)}>Edit</button>
+      <button onClick={()=>editEntry(e)}>Edit</button>
     </div>
   ));
 
-  const archiveEvent = () => {
-    if(!eventLocked) return alert("Lock event first");
-
-    const newEvent = {
-      eventName,
-      date: new Date().toLocaleString(),
-      results: sorted
-    };
-
-    const updated = [...archive, newEvent];
-    setArchive(updated);
-    localStorage.setItem("autofestArchive", JSON.stringify(updated));
-    alert("Event archived");
-  };
-
-  // SCREENS
-
+  // HOME
   if(screen==="home"){
     return(
       <div style={{padding:20}}>
-        <h1>AUTOFEST</h1>
+        <h1>🏁 AUTOFEST</h1>
+
         <button style={big} onClick={()=>setScreen("setup")}>New Event</button>
+        <button style={big} onClick={()=>setScreen("judge")}>Judge Login</button>
+        <button style={big} onClick={()=>setScreen("score")}>Resume Judging</button>
         <button style={big} onClick={()=>setScreen("leader")}>Leaderboard</button>
-        <button style={big} onClick={()=>setScreen("archive")}>Archive</button>
       </div>
     );
   }
 
+  // SETUP
   if(screen==="setup"){
     return(
       <div style={{padding:20}}>
-        <input placeholder="Event Name" onChange={(e)=>setEventName(e.target.value)}/>
+        <input placeholder="Event Name" onChange={(e)=>setEventName(e.target.value)} />
+
         {judges.map((j,i)=>(
-          <input key={i} placeholder={`Judge ${i+1}`}
+          <input key={i}
+            placeholder={`Judge ${i+1}`}
             onChange={(e)=>{
               const copy=[...judges];
               copy[i]=e.target.value;
               setJudges(copy);
-            }}/>
+            }}
+          />
         ))}
-        <button onClick={startEvent}>Start</button>
+
+        <button onClick={startEvent}>Start Event</button>
       </div>
     );
   }
 
+  // JUDGE
   if(screen==="judge"){
     return(
       <div style={{padding:20}}>
         {judges.map((j,i)=>(
-          <button key={i} onClick={()=>{setActiveJudge(j);setScreen("score")}}>
+          <button key={i}
+            onClick={()=>{setActiveJudge(j);setScreen("score")}}>
             {j}
           </button>
         ))}
@@ -290,12 +241,14 @@ export default function App(){
     );
   }
 
+  // SCORE
   if(screen==="score"){
     return(
       <div style={{padding:20}}>
         <h3>{eventName} | {activeJudge}</h3>
 
-        <input ref={carInputRef} value={car} onChange={(e)=>setCar(e.target.value)} placeholder="Car"/>
+        <input ref={carInputRef} value={car}
+          onChange={(e)=>setCar(e.target.value)} placeholder="Car"/>
 
         <button onClick={()=>setGender("Male")}>Male</button>
         <button onClick={()=>setGender("Female")}>Female</button>
@@ -307,49 +260,26 @@ export default function App(){
         {categories.map(cat=>(
           <div key={cat}>
             {Array.from({length:21},(_,i)=>(
-              <button key={i} onClick={()=>setScores({...scores,[cat]:i})}>{i}</button>
+              <button key={i}
+                onClick={()=>setScores({...scores,[cat]:i})}>{i}</button>
             ))}
           </div>
         ))}
 
-        <button onClick={submit}>
+        <button onClick={editingCar ? saveEdit : submit}>
           {editingCar ? "Save Edit" : "Submit"}
         </button>
-
-        {editingCar && <button onClick={saveEdit}>Confirm Edit</button>}
       </div>
     );
   }
 
+  // LEADERBOARD
   if(screen==="leader"){
     return(
       <div style={{padding:20}}>
         <h2>Leaderboard</h2>
         {renderList(sorted)}
-
-        <button onClick={printResults}>Print</button>
-        <button onClick={()=>setEventLocked(true)}>Lock</button>
-        <button onClick={archiveEvent}>Archive</button>
-      </div>
-    );
-  }
-
-  if(screen==="archive"){
-    return(
-      <div style={{padding:20}}>
-        {archive.map((e,i)=>(
-          <div key={i}>
-            {e.eventName}
-            <button onClick={()=>{
-              if(!window.confirm("Delete?")) return;
-              if(!window.confirm("FINAL WARNING")) return;
-
-              const updated = archive.filter((_,x)=>x!==i);
-              setArchive(updated);
-              localStorage.setItem("autofestArchive", JSON.stringify(updated));
-            }}>Delete</button>
-          </div>
-        ))}
+        <button onClick={()=>setScreen("home")}>Home</button>
       </div>
     );
   }

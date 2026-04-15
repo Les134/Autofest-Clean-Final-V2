@@ -34,10 +34,11 @@ export default function App(){
   const [deductions,setDeductions] = useState({});
   const [tyres,setTyres] = useState({left:false,right:false});
 
-  // 🔥 LIVE SYNC
+  // SAFE LIVE SYNC
   useEffect(()=>{
     const unsub = onSnapshot(collection(db,"scores"), snap=>{
-      setEntries(snap.docs.map(doc=>doc.data()));
+      const data = snap.docs.map(doc=>doc.data());
+      setEntries(data || []);
     });
     return ()=>unsub();
   },[]);
@@ -66,7 +67,9 @@ export default function App(){
     const finalScore = base + tyreScore - (activeDeductions.length*10);
 
     await addDoc(collection(db,"scores"),{
-      car, gender, carClass,
+      car,
+      gender,
+      carClass,
       finalScore,
       deductions: activeDeductions,
       judge: activeJudge,
@@ -81,49 +84,43 @@ export default function App(){
     setCarClass("");
   };
 
-  const lockEvent = ()=>{
-    if(window.confirm("Lock event?")){
-      setEventLocked(true);
-    }
-  };
-
+  const lockEvent = ()=> setEventLocked(true);
   const archiveEvent = async ()=>{
     await addDoc(collection(db,"archive"),{
       eventName,
-      results: entries,
-      created: new Date().toISOString()
+      results: entries
     });
-    alert("Archived ✅");
   };
 
   const printResults = ()=> window.print();
 
   const sorted = [...entries].sort((a,b)=>b.finalScore-a.finalScore);
 
-  const renderList = (list)=>list.map((e,i)=>(
-    <div key={i}>
-      #{i+1} | Car {e.car} | {e.gender}
-      {e.deductions?.length>0 && (
-        <> | Less Deduction {e.deductions.join(", ")}</>
-      )}
-      {" "} - Score {e.finalScore}
-    </div>
-  ));
+  const renderList = (list)=>(
+    (list || []).map((e,i)=>(
+      <div key={i}>
+        #{i+1} | Car {e.car} | {e.gender}
+        {e.deductions?.length>0 && (
+          <> | Less Deduction {e.deductions.join(", ")}</>
+        )}
+        {" "} - Score {e.finalScore}
+      </div>
+    ))
+  );
 
-  const grouped = classes.reduce((acc,c)=>{
-    acc[c] = entries.filter(e=>e.carClass === c)
+  const grouped = {};
+  classes.forEach(c=>{
+    grouped[c] = (entries || [])
+      .filter(e=>e.carClass === c)
       .sort((a,b)=>b.finalScore-a.finalScore);
-    return acc;
-  },{});
+  });
 
   const big={padding:18,margin:10,width:"100%"};
 
-  // HOME
   if(screen==="home"){
     return(
       <div style={{padding:20}}>
         <h1>🔥 AUTOFEST 🔥</h1>
-
         <button style={big} onClick={()=>setScreen("setup")}>New Event</button>
         <button style={big} onClick={()=>setScreen("leader")}>Leaderboard</button>
         <button style={big} onClick={()=>setScreen("classes")}>Class Leaderboards</button>
@@ -131,7 +128,6 @@ export default function App(){
     );
   }
 
-  // SETUP
   if(screen==="setup"){
     return(
       <div style={{padding:20}}>
@@ -139,9 +135,7 @@ export default function App(){
         {judges.map((j,i)=>(
           <input key={i} placeholder={`Judge ${i+1}`}
             onChange={e=>{
-              const copy=[...judges];
-              copy[i]=e.target.value;
-              setJudges(copy);
+              const c=[...judges]; c[i]=e.target.value; setJudges(c);
             }}
           />
         ))}
@@ -150,7 +144,6 @@ export default function App(){
     );
   }
 
-  // JUDGE
   if(screen==="judge"){
     return(
       <div style={{padding:20}}>
@@ -164,7 +157,6 @@ export default function App(){
     );
   }
 
-  // SCORE
   if(screen==="score"){
     return(
       <div style={{padding:20}}>
@@ -188,24 +180,11 @@ export default function App(){
           </div>
         ))}
 
-        <div>
-          <button onClick={()=>setTyres({...tyres,left:!tyres.left})}>Left Tyre</button>
-          <button onClick={()=>setTyres({...tyres,right:!tyres.right})}>Right Tyre</button>
-        </div>
-
-        {deductionsList.map(d=>(
-          <button key={d}
-            onClick={()=>setDeductions({...deductions,[d]:!deductions[d]})}>
-            {d}
-          </button>
-        ))}
-
         <button style={big} onClick={submit}>Submit</button>
       </div>
     );
   }
 
-  // MAIN LEADERBOARD (UNCHANGED)
   if(screen==="leader"){
     return(
       <div style={{padding:20}}>
@@ -213,25 +192,22 @@ export default function App(){
 
         {renderList(sorted)}
 
-        <div style={{marginTop:20}}>
-          <button onClick={lockEvent}>🔒 Lock</button>
-          <button onClick={archiveEvent}>🗂 Archive</button>
-          <button onClick={printResults}>🖨 Print</button>
-        </div>
+        <button onClick={lockEvent}>🔒 Lock</button>
+        <button onClick={archiveEvent}>🗂 Archive</button>
+        <button onClick={printResults}>🖨 Print</button>
 
         <button style={big} onClick={()=>setScreen("home")}>Home</button>
       </div>
     );
   }
 
-  // CLASS LEADERBOARD (NEW SCREEN)
   if(screen==="classes"){
     return(
       <div style={{padding:20}}>
         <h2>Class Leaderboards</h2>
 
         {classes.map(c=>(
-          <div key={c} style={{marginBottom:20}}>
+          <div key={c}>
             <h3>{c}</h3>
             {renderList(grouped[c])}
           </div>

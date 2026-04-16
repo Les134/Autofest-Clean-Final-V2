@@ -1,20 +1,22 @@
-// =========================
-        value={entrant.car}
-        onChange={(e) =>
-          setEntrant({ ...entrant, car: e.target.value })
-        }
-      />
-
-      <div>
+import { initializeApp } from "firebase/app";
+      <div style={{ marginTop: 10 }}>
         <button
           onClick={() => setEntrant({ ...entrant, gender: "Male" })}
-          style={{ background: entrant.gender === "Male" ? "#ccc" : "#eee" }}
+          style={{
+            marginRight: 10,
+            padding: 10,
+            background: entrant.gender === "Male" ? "#ccc" : "#eee"
+          }}
         >
           Male
         </button>
         <button
           onClick={() => setEntrant({ ...entrant, gender: "Female" })}
-          style={{ background: entrant.gender === "Female" ? "red" : "#eee", color: entrant.gender === "Female" ? "white" : "black" }}
+          style={{
+            padding: 10,
+            background: entrant.gender === "Female" ? "red" : "#eee",
+            color: entrant.gender === "Female" ? "white" : "black"
+          }}
         >
           Female
         </button>

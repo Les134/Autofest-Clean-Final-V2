@@ -11,6 +11,8 @@ const classes = [
   "V8 Pro","V8 N/A","6 Cyl Pro","6 Cyl N/A","4Cyl Open/Rotary"
 ];
 
+const deductionsList = ["Reversing","Stopping","Barrier","Fire"];
+
 export default function App(){
 
   const [screen,setScreen] = useState("home");
@@ -19,7 +21,10 @@ export default function App(){
   const [car,setCar] = useState("");
   const [gender,setGender] = useState("");
   const [carClass,setCarClass] = useState("");
+
   const [scores,setScores] = useState({});
+  const [deductions,setDeductions] = useState({});
+  const [tyres,setTyres] = useState({left:false,right:false});
 
   const scoreBtn = {
     width:"38px",
@@ -30,19 +35,7 @@ export default function App(){
     fontSize:"13px"
   };
 
-  const classBtn = {
-    padding:"8px 12px",
-    margin:"4px",
-    borderRadius:"5px",
-    border:"1px solid #bbb"
-  };
-
-  const genderBtn = {
-    padding:"8px 16px",
-    margin:"4px",
-    borderRadius:"5px",
-    border:"1px solid #bbb"
-  };
+  const rowSpacing = { marginTop:"14px" };
 
   const bigBtn = {
     width:"100%",
@@ -54,13 +47,19 @@ export default function App(){
   const submit = ()=>{
     if(!car) return alert("Enter entrant");
 
-    const total = Object.values(scores).reduce((a,b)=>a+b,0);
+    const base = Object.values(scores).reduce((a,b)=>a+b,0);
+    const tyreScore = (tyres.left?5:0)+(tyres.right?5:0);
+    const deductionTotal = Object.values(deductions).filter(v=>v).length*10;
+
+    const finalScore = base + tyreScore - deductionTotal;
 
     setEntries(prev => [...prev, {
-      car, gender, carClass, finalScore: total
+      car, gender, carClass, finalScore
     }]);
 
     setScores({});
+    setDeductions({});
+    setTyres({left:false,right:false});
     setCar("");
     setGender("");
     setCarClass("");
@@ -87,6 +86,9 @@ export default function App(){
       <div style={{padding:20}}>
         <h1>🔥 AUTOFEST LIVE SYNC 🔥</h1>
 
+        <button style={bigBtn} onClick={()=>setScreen("setup")}>New Event</button>
+        <button style={bigBtn} onClick={()=>setScreen("judge")}>Judge Login</button>
+        <button style={bigBtn} onClick={()=>setScreen("score")}>Resume Judging</button>
         <button style={bigBtn} onClick={()=>setScreen("score")}>Return to Score Sheet</button>
 
         <button style={bigBtn} onClick={()=>setScreen("leader")}>Leaderboard</button>
@@ -105,16 +107,16 @@ export default function App(){
           value={car}
           onChange={(e)=>setCar(e.target.value)}
           placeholder="Entrant No"
-          style={{width:"100%",padding:"10px",marginBottom:"10px"}}
+          style={{width:"100%",padding:"14px",fontSize:"16px"}}
         />
 
         {/* GENDER */}
-        <div>
+        <div style={rowSpacing}>
           <button
             style={{
-              ...genderBtn,
-              background: gender==="Male" ? "#00cc66" : "#eee",
-              color: gender==="Male" ? "#fff" : "#000"
+              padding:"10px 20px",
+              marginRight:"10px",
+              background: gender==="Male" ? "#00cc66" : "#eee"
             }}
             onClick={()=>setGender("Male")}
           >
@@ -123,7 +125,7 @@ export default function App(){
 
           <button
             style={{
-              ...genderBtn,
+              padding:"10px 20px",
               background: gender==="Female" ? "#007bff" : "#eee",
               color: gender==="Female" ? "#fff" : "#000"
             }}
@@ -134,11 +136,12 @@ export default function App(){
         </div>
 
         {/* CLASS */}
-        <div>
+        <div style={rowSpacing}>
           {classes.map(c=>(
             <button key={c}
               style={{
-                ...classBtn,
+                padding:"10px 14px",
+                margin:"4px",
                 background: carClass===c ? "#333" : "#eee",
                 color: carClass===c ? "#fff" : "#000"
               }}
@@ -151,10 +154,10 @@ export default function App(){
 
         {/* SCORES */}
         {categories.map(cat=>(
-          <div key={cat} style={{marginTop:"10px"}}>
+          <div key={cat} style={rowSpacing}>
             <div style={{display:"flex",alignItems:"center"}}>
 
-              <div style={{width:"150px",fontSize:"13px"}}>
+              <div style={{width:"160px",fontSize:"14px"}}>
                 {cat}
               </div>
 
@@ -176,6 +179,28 @@ export default function App(){
             </div>
           </div>
         ))}
+
+        {/* TYRES */}
+        <div style={rowSpacing}>
+          <strong>Blown Tyres (+5)</strong><br/>
+          <button onClick={()=>setTyres({...tyres,left:!tyres.left})}>
+            Left
+          </button>
+          <button onClick={()=>setTyres({...tyres,right:!tyres.right})}>
+            Right
+          </button>
+        </div>
+
+        {/* DEDUCTIONS */}
+        <div style={rowSpacing}>
+          <strong>Deductions (-10)</strong><br/>
+          {deductionsList.map(d=>(
+            <button key={d}
+              onClick={()=>setDeductions({...deductions,[d]:!deductions[d]})}>
+              {d}
+            </button>
+          ))}
+        </div>
 
         <button style={bigBtn} onClick={submit}>Submit Score</button>
         <button style={bigBtn} onClick={()=>setScreen("home")}>Home</button>

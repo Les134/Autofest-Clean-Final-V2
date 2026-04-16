@@ -1,10 +1,10 @@
 import React, { useState } from "react";
 
 const categories = [
-  { name:"Instant Smoke", color:"#ff3c00" },
-  { name:"Volume of Smoke", color:"#0099ff" },
-  { name:"Constant Smoke", color:"#ffaa00" },
-  { name:"Driver Skill & Control", color:"#00cc66" }
+  "Instant Smoke",
+  "Volume of Smoke",
+  "Constant Smoke",
+  "Driver Skill & Control"
 ];
 
 const classes = [
@@ -14,9 +14,6 @@ const classes = [
 export default function App(){
 
   const [screen,setScreen] = useState("home");
-  const [eventName,setEventName] = useState("");
-  const [judges,setJudges] = useState(["","","","","",""]);
-  const [activeJudge,setActiveJudge] = useState("");
   const [entries,setEntries] = useState([]);
 
   const [car,setCar] = useState("");
@@ -25,12 +22,26 @@ export default function App(){
   const [scores,setScores] = useState({});
 
   const scoreBtn = {
-    width:"34px",
-    height:"34px",
+    width:"38px",
+    height:"38px",
     margin:"2px",
-    borderRadius:"4px",
-    border:"1px solid #ccc",
-    fontSize:"11px"
+    borderRadius:"5px",
+    border:"1px solid #bbb",
+    fontSize:"13px"
+  };
+
+  const classBtn = {
+    padding:"8px 12px",
+    margin:"4px",
+    borderRadius:"5px",
+    border:"1px solid #bbb"
+  };
+
+  const genderBtn = {
+    padding:"8px 16px",
+    margin:"4px",
+    borderRadius:"5px",
+    border:"1px solid #bbb"
   };
 
   const bigBtn = {
@@ -40,9 +51,9 @@ export default function App(){
     fontSize:"18px"
   };
 
-  // SUBMIT SCORE
   const submit = ()=>{
     if(!car) return alert("Enter entrant");
+
     const total = Object.values(scores).reduce((a,b)=>a+b,0);
 
     setEntries(prev => [...prev, {
@@ -76,10 +87,6 @@ export default function App(){
       <div style={{padding:20}}>
         <h1>🔥 AUTOFEST LIVE SYNC 🔥</h1>
 
-        <button style={bigBtn} onClick={()=>setScreen("setup")}>New Event</button>
-        <button style={bigBtn} onClick={()=>setScreen("judge")}>Judge Login</button>
-        <button style={bigBtn} onClick={()=>setScreen("score")}>Resume Judging</button>
-
         <button style={bigBtn} onClick={()=>setScreen("score")}>Return to Score Sheet</button>
 
         <button style={bigBtn} onClick={()=>setScreen("leader")}>Leaderboard</button>
@@ -89,54 +96,7 @@ export default function App(){
     );
   }
 
-  // SETUP
-  if(screen==="setup"){
-    return(
-      <div style={{padding:20}}>
-        <h2>Event Setup</h2>
-
-        <input
-          placeholder="Event Name"
-          value={eventName}
-          onChange={(e)=>setEventName(e.target.value)}
-        />
-
-        {judges.map((j,i)=>(
-          <input key={i}
-            placeholder={`Judge ${i+1}`}
-            onChange={(e)=>{
-              const copy=[...judges];
-              copy[i]=e.target.value;
-              setJudges(copy);
-            }}
-          />
-        ))}
-
-        <button style={bigBtn} onClick={()=>setScreen("judge")}>Start Event</button>
-        <button style={bigBtn} onClick={()=>setScreen("home")}>Home</button>
-      </div>
-    );
-  }
-
-  // JUDGE LOGIN
-  if(screen==="judge"){
-    return(
-      <div style={{padding:20}}>
-        <h2>Select Judge</h2>
-
-        {judges.map((j,i)=>(
-          <button key={i} style={bigBtn}
-            onClick={()=>{setActiveJudge(j);setScreen("score")}}>
-            {j}
-          </button>
-        ))}
-
-        <button style={bigBtn} onClick={()=>setScreen("home")}>Home</button>
-      </div>
-    );
-  }
-
-  // SCORE (MATCHES YOUR IMAGE)
+  // SCORE
   if(screen==="score"){
     return(
       <div style={{padding:20}}>
@@ -145,40 +105,68 @@ export default function App(){
           value={car}
           onChange={(e)=>setCar(e.target.value)}
           placeholder="Entrant No"
-          style={{width:"100%",padding:10}}
+          style={{width:"100%",padding:"10px",marginBottom:"10px"}}
         />
 
+        {/* GENDER */}
         <div>
-          <button onClick={()=>setGender("Male")}>Male</button>
-          <button onClick={()=>setGender("Female")}>Female</button>
+          <button
+            style={{
+              ...genderBtn,
+              background: gender==="Male" ? "#00cc66" : "#eee",
+              color: gender==="Male" ? "#fff" : "#000"
+            }}
+            onClick={()=>setGender("Male")}
+          >
+            Male
+          </button>
+
+          <button
+            style={{
+              ...genderBtn,
+              background: gender==="Female" ? "#007bff" : "#eee",
+              color: gender==="Female" ? "#fff" : "#000"
+            }}
+            onClick={()=>setGender("Female")}
+          >
+            Female
+          </button>
         </div>
 
+        {/* CLASS */}
         <div>
           {classes.map(c=>(
-            <button key={c} onClick={()=>setCarClass(c)}>{c}</button>
+            <button key={c}
+              style={{
+                ...classBtn,
+                background: carClass===c ? "#333" : "#eee",
+                color: carClass===c ? "#fff" : "#000"
+              }}
+              onClick={()=>setCarClass(c)}
+            >
+              {c}
+            </button>
           ))}
         </div>
 
+        {/* SCORES */}
         {categories.map(cat=>(
-          <div key={cat.name} style={{marginTop:10}}>
+          <div key={cat} style={{marginTop:"10px"}}>
             <div style={{display:"flex",alignItems:"center"}}>
 
-              <div style={{
-                width:"140px",
-                fontSize:"12px"
-              }}>
-                {cat.name}
+              <div style={{width:"150px",fontSize:"13px"}}>
+                {cat}
               </div>
 
-              <div style={{display:"flex",flexWrap:"wrap"}}>
+              <div style={{display:"flex",flexWrap:"nowrap"}}>
                 {Array.from({length:21},(_,i)=>(
                   <button key={i}
                     style={{
                       ...scoreBtn,
-                      background:scores[cat.name]===i ? cat.color : "#eee",
-                      color:scores[cat.name]===i ? "#fff" : "#000"
+                      background: scores[cat]===i ? "#ff0000" : "#eee",
+                      color: scores[cat]===i ? "#fff" : "#000"
                     }}
-                    onClick={()=>setScores({...scores,[cat.name]:i})}
+                    onClick={()=>setScores({...scores,[cat]:i})}
                   >
                     {i}
                   </button>
@@ -196,7 +184,7 @@ export default function App(){
     );
   }
 
-  // LEADERBOARDS
+  // LEADERBOARD
   if(screen==="leader"){
     return(
       <div style={{padding:20}}>

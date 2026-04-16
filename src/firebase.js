@@ -1,8 +1,5 @@
 import { initializeApp } from "firebase/app";
-import {
-  getFirestore,
-  enableIndexedDbPersistence
-} from "firebase/firestore";
+import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCuvxgmnpr8EVRAN9y-AJCWGVOf0xi7sxk",
@@ -15,8 +12,5 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
-
-// 🔥 ENABLE OFFLINE MODE
-enableIndexedDbPersistence(db).catch(()=>{});
 
 export { db };

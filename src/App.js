@@ -1,11 +1,23 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Scoreboard from "./Scoreboard";
 import Leaderboard from "./Leaderboard";
+import { db } from "./firebase";
+import { collection, onSnapshot } from "firebase/firestore";
 
 export default function App() {
   const [eventName, setEventName] = useState("");
   const [started, setStarted] = useState(false);
   const [results, setResults] = useState([]);
+
+  // 🔥 REAL-TIME FIREBASE LISTENER
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, "results"), (snapshot) => {
+      const data = snapshot.docs.map(doc => doc.data());
+      setResults(data);
+    });
+
+    return () => unsub();
+  }, []);
 
   if (!started) {
     return (
@@ -30,7 +42,7 @@ export default function App() {
 
   return (
     <div style={{ padding: 20 }}>
-      <Scoreboard eventName={eventName} setResults={setResults} />
+      <Scoreboard eventName={eventName} />
       <Leaderboard results={results} />
     </div>
   );

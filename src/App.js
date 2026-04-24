@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { initializeApp } from "firebase/app";
 import { getFirestore, collection, addDoc, onSnapshot } from "firebase/firestore";
 
-// 🔥 YOUR FIREBASE CONFIG (KEEP YOURS)
+// FIREBASE CONFIG (KEEP YOURS)
 const firebaseConfig = {
   apiKey: "AIzaSyB5NhDJMBwhMpUUL3XIHUnISTuCeQkXKS8",
   authDomain: "autofest-burnout-judging-848fd.firebaseapp.com",
@@ -31,16 +31,13 @@ export default function App(){
 
   const [car,setCar] = useState("");
   const [driver,setDriver] = useState("");
-  const [rego,setRego] = useState("");
-  const [carName,setCarName] = useState("");
-
   const [gender,setGender] = useState("");
   const [carClass,setCarClass] = useState("");
 
   const [scores,setScores] = useState({});
   const [deductions,setDeductions] = useState({});
 
-  // 🔥 REAL-TIME FIX
+  // 🔥 REAL-TIME FIREBASE
   useEffect(()=>{
     const unsub = onSnapshot(collection(db,"scores"), (snapshot)=>{
       const d = snapshot.docs.map(doc => doc.data());
@@ -72,8 +69,6 @@ export default function App(){
       judge,
       car,
       driver,
-      rego,
-      carName,
       gender,
       carClass,
       finalScore,
@@ -82,18 +77,16 @@ export default function App(){
 
     addDoc(collection(db,"scores"), payload);
 
-    // CLEAR (FIXED)
+    // CLEAR ENTRANT
     setScores({});
     setDeductions({});
     setCar("");
     setDriver("");
-    setRego("");
-    setCarName("");
     setGender("");
     setCarClass("");
   }
 
-  // 🔥 COMBINE SCORES CORRECTLY
+  // COMBINE SCORES
   function combineScores(){
     const combined = {};
 
@@ -118,7 +111,10 @@ export default function App(){
 
   const combinedData = combineScores();
 
-  // GROUPED BOARDS
+  const top150 = combinedData
+    .sort((a,b)=>b.total-a.total)
+    .slice(0,150);
+
   const grouped = {};
   combinedData.forEach(e=>{
     const key = (e.carClass || "Unknown") + " - " + (e.gender || "Unknown");
@@ -131,12 +127,7 @@ export default function App(){
     grouped[k].sort((a,b)=>b.total-a.total);
   });
 
-  // TOP 150
-  const top150 = combinedData
-    .sort((a,b)=>b.total-a.total)
-    .slice(0,150);
-
-  // SCREENS
+  // ---------------- SCREENS ----------------
 
   if(screen === "judgeSelect"){
     return (
@@ -173,7 +164,7 @@ export default function App(){
 
         {top150.map((e,i)=>(
           <div key={i}>
-            #{i+1} | {e.car} | {e.driver} | {e.total}
+            #{i+1} | {e.car} / {e.driver} - {e.total}
           </div>
         ))}
 
@@ -194,7 +185,7 @@ export default function App(){
 
             {grouped[group].map((e,i)=>(
               <div key={i}>
-                #{i+1} | {e.car} | {e.driver} | {e.total}
+                #{i+1} | {e.car} / {e.driver} - {e.total}
               </div>
             ))}
           </div>
@@ -205,51 +196,81 @@ export default function App(){
     );
   }
 
+  // ---------------- SCORE SCREEN ----------------
+
   return (
-    <div style={{padding:20}}>
+    <div style={{padding:20, background:"#111", color:"#fff"}}>
 
-      <h2>Judge {judge}</h2>
+      <h2 style={{fontSize:26}}>
+        JUDGE {judge} - {judgeNames[judge]}
+      </h2>
 
-      <input placeholder="Car #" value={car} onChange={e=>setCar(e.target.value)} />
-      <input placeholder="Driver" value={driver} onChange={e=>setDriver(e.target.value)} />
-      <input placeholder="Rego" value={rego} onChange={e=>setRego(e.target.value)} />
-      <input placeholder="Car Name" value={carName} onChange={e=>setCarName(e.target.value)} />
-
-      <div>
-        <button onClick={()=>setGender("Male")}>Male</button>
-        <button onClick={()=>setGender("Female")}>Female</button>
+      {/* ENTRANT */}
+      <div style={{background:"#222", padding:15, marginBottom:15}}>
+        <input style={input} placeholder="Car #" value={car} onChange={e=>setCar(e.target.value)} />
+        <input style={input} placeholder="Driver" value={driver} onChange={e=>setDriver(e.target.value)} />
       </div>
 
-      <div>
+      {/* CLASS */}
+      <div style={{marginBottom:10}}>
         {classes.map(c=>(
-          <button key={c} onClick={()=>setCarClass(c)}>
+          <button key={c}
+            onClick={()=>setCarClass(c)}
+            style={carClass===c?btnBlue:btn}>
             {c}
           </button>
         ))}
       </div>
 
+      {/* GENDER */}
+      <div style={{marginBottom:20}}>
+        <button onClick={()=>setGender("Male")} style={gender==="Male"?btnGreen:btn}>Male</button>
+        <button onClick={()=>setGender("Female")} style={gender==="Female"?btnGreen:btn}>Female</button>
+      </div>
+
+      {/* SCORES */}
       {categories.map(cat=>(
-        <div key={cat}>
-          <h4>{cat}</h4>
-          {Array.from({length:21},(_,i)=>(
-            <button key={i} onClick={()=>setScore(cat,i)}>{i}</button>
-          ))}
+        <div key={cat} style={{marginBottom:15}}>
+          <strong>{cat}</strong>
+          <div style={{display:"flex", flexWrap:"wrap"}}>
+            {Array.from({length:21},(_,i)=>(
+              <button key={i}
+                onClick={()=>setScore(cat,i)}
+                style={scores[cat]===i?btnRed:btn}>
+                {i}
+              </button>
+            ))}
+          </div>
         </div>
       ))}
 
-      <div>
-        <h4>Deductions</h4>
+      {/* DEDUCTIONS */}
+      <div style={{marginTop:20}}>
+        <strong>Deductions</strong><br/>
         {deductionsList.map(d=>(
-          <button key={d} onClick={()=>toggleDeduction(d)}>
+          <button key={d}
+            onClick={()=>toggleDeduction(d)}
+            style={deductions[d]?btnRed:btn}>
             {d}
           </button>
         ))}
       </div>
 
-      <button onClick={submit}>Submit</button>
-      <button onClick={()=>setScreen("top150")}>Top 150</button>
-      <button onClick={()=>setScreen("leaderboard")}>Leaderboard</button>
+      {/* ACTIONS */}
+      <div style={{marginTop:20}}>
+        <button style={btnBig} onClick={submit}>Submit</button>
+        <button style={btnBig} onClick={()=>setScreen("top150")}>Top 150</button>
+        <button style={btnBig} onClick={()=>setScreen("leaderboard")}>Leaderboard</button>
+      </div>
 
     </div>
   );
 }
+
+// STYLES
+const input = {padding:"14px", margin:"6px", width:"95%"};
+const btn = {padding:"10px", margin:"4px"};
+const btnRed = {...btn, background:"red", color:"#fff"};
+const btnBlue = {...btn, background:"blue", color:"#fff"};
+const btnGreen = {...btn, background:"green", color:"#fff"};
+const btnBig = {padding:"16px", margin:"8px", background:"#000", color:"#fff"}

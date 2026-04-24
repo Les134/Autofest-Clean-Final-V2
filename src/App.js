@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { initializeApp } from "firebase/app";
 import { getFirestore, collection, addDoc, onSnapshot } from "firebase/firestore";
 
-// 🔥 YOUR FIREBASE CONFIG (keep yours)
+// 🔥 YOUR FIREBASE CONFIG (KEEP YOURS)
 const firebaseConfig = {
   apiKey: "AIzaSyB5NhDJMBwhMpUUL3XIHUnISTuCeQkXKS8",
   authDomain: "autofest-burnout-judging-848fd.firebaseapp.com",
@@ -40,16 +40,13 @@ export default function App(){
   const [scores,setScores] = useState({});
   const [deductions,setDeductions] = useState({});
 
-  // 🔥 REAL-TIME FIREBASE (FIXED)
-  useEffect(function(){
-    const unsub = onSnapshot(collection(db,"scores"), function(snapshot){
-      var d = snapshot.docs.map(function(doc){
-        return doc.data();
-      });
+  // 🔥 REAL-TIME FIX
+  useEffect(()=>{
+    const unsub = onSnapshot(collection(db,"scores"), (snapshot)=>{
+      const d = snapshot.docs.map(doc => doc.data());
       setData(d);
     });
-
-    return () => unsub();
+    return ()=>unsub();
   },[]);
 
   function setScore(cat,val){
@@ -67,12 +64,11 @@ export default function App(){
       return;
     }
 
-    var total = Object.values(scores).reduce((a,b)=>a+b,0);
+    const total = Object.values(scores).reduce((a,b)=>a+b,0);
+    const deductionCount = Object.values(deductions).filter(v=>v).length;
+    const finalScore = total - (deductionCount * 10);
 
-    var deductionCount = Object.values(deductions).filter(v=>v).length;
-    var finalScore = total - (deductionCount * 10);
-
-    var payload = {
+    const payload = {
       judge,
       car,
       driver,
@@ -84,7 +80,6 @@ export default function App(){
       timestamp: Date.now()
     };
 
-    // SAVE TO FIREBASE
     addDoc(collection(db,"scores"), payload);
 
     // CLEAR (FIXED)
@@ -98,13 +93,12 @@ export default function App(){
     setCarClass("");
   }
 
-  // 🔥 COMBINE ALL JUDGES
+  // 🔥 COMBINE SCORES CORRECTLY
   function combineScores(){
-    var combined = {};
+    const combined = {};
 
-    data.forEach(function(entry){
-
-      var key = entry.car + "_" + entry.driver;
+    data.forEach(entry=>{
+      const key = entry.car + "_" + entry.driver;
 
       if(!combined[key]){
         combined[key] = {
@@ -122,30 +116,25 @@ export default function App(){
     return Object.values(combined);
   }
 
-  // 🔥 TOP 150
-  function buildTop150(){
-    var sorted = combineScores()
-      .sort((a,b)=>b.total-a.total)
-      .slice(0,150);
+  const combinedData = combineScores();
 
-    setScreen("top150");
-    setTop(sorted);
-  }
-
-  const [top,setTop] = useState([]);
-
-  // GROUP BY CLASS + GENDER
-  var grouped = {};
-  combineScores().forEach(function(e){
-    var key = (e.carClass || "Unknown") + " - " + (e.gender || "Unknown");
+  // GROUPED BOARDS
+  const grouped = {};
+  combinedData.forEach(e=>{
+    const key = (e.carClass || "Unknown") + " - " + (e.gender || "Unknown");
 
     if(!grouped[key]) grouped[key] = [];
     grouped[key].push(e);
   });
 
-  Object.keys(grouped).forEach(function(k){
+  Object.keys(grouped).forEach(k=>{
     grouped[k].sort((a,b)=>b.total-a.total);
   });
+
+  // TOP 150
+  const top150 = combinedData
+    .sort((a,b)=>b.total-a.total)
+    .slice(0,150);
 
   // SCREENS
 
@@ -154,8 +143,8 @@ export default function App(){
       <div style={{padding:20}}>
         <h2>Select Judge</h2>
 
-        {[1,2,3,4,5,6].map(j => (
-          <div key={j}>
+        {[1,2,3,4,5,6].map(j=>(
+          <div key={j} style={{marginBottom:10}}>
             <input
               value={judgeNames[j]}
               onChange={e=>{
@@ -182,7 +171,7 @@ export default function App(){
       <div style={{padding:20}}>
         <h2>TOP 150</h2>
 
-        {top.map((e,i)=>(
+        {top150.map((e,i)=>(
           <div key={i}>
             #{i+1} | {e.car} | {e.driver} | {e.total}
           </div>
@@ -258,7 +247,7 @@ export default function App(){
       </div>
 
       <button onClick={submit}>Submit</button>
-      <button onClick={buildTop150}>Top 150</button>
+      <button onClick={()=>setScreen("top150")}>Top 150</button>
       <button onClick={()=>setScreen("leaderboard")}>Leaderboard</button>
 
     </div>

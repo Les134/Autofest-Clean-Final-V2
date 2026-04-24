@@ -11,7 +11,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// ✅ FINAL LOCKED SCORE ROWS
+// ✅ FINAL LOCKED ROWS
 const categories = [
   "Instant Smoke",
   "Volume of Smoke",
@@ -19,23 +19,35 @@ const categories = [
   "Drivers Skill & Control"
 ];
 
-const classes = ["V8 Pro","V8 N/A","6Cyl Pro","6Cyl N/A","4Cyl/Rotary"];
-
+// ✅ DEDUCTIONS
 const deductionsList = [
   "Hi Barrier",
-  "Reversing/Stall",
-  "Fail Drive Off Pad",
+  "Reversing / Stall",
+  "Fail To Drive Off Pad",
   "Large Fire"
+];
+
+const classes = [
+  "V8 Pro",
+  "V8 N/A",
+  "6Cyl Pro",
+  "6Cyl N/A",
+  "4Cyl / Rotary"
 ];
 
 export default function App(){
 
   const [screen,setScreen] = useState("home");
 
-  const [judge,setJudge] = useState("");
+  // ADMIN
+  const [adminPass,setAdminPass] = useState(localStorage.getItem("admin") || "");
+  const [isAdmin,setIsAdmin] = useState(false);
 
+  // DATA
   const [data,setData] = useState([]);
 
+  // ENTRY
+  const [judge,setJudge] = useState("");
   const [car,setCar] = useState("");
   const [driver,setDriver] = useState("");
   const [gender,setGender] = useState("");
@@ -45,12 +57,36 @@ export default function App(){
   const [deductions,setDeductions] = useState({});
   const [tyres,setTyres] = useState(0);
 
+  // LIVE DATA
   useEffect(()=>{
     const unsub = onSnapshot(collection(db,"scores"), snap=>{
       setData(snap.docs.map(d=>d.data()));
     });
     return ()=>unsub();
   },[]);
+
+  // ---------------- ADMIN ----------------
+
+  function setAdmin(){
+    const pass = prompt("Set Admin Password");
+    if(pass){
+      localStorage.setItem("admin",pass);
+      setAdminPass(pass);
+      alert("Admin Password Set");
+    }
+  }
+
+  function loginAdmin(){
+    const pass = prompt("Enter Admin Password");
+    if(pass === adminPass){
+      setIsAdmin(true);
+      alert("Admin Logged In");
+    } else {
+      alert("Incorrect Password");
+    }
+  }
+
+  // ---------------- SCORING ----------------
 
   function setScore(cat,val){
     setScores(prev=>({...prev,[cat]:val}));
@@ -61,13 +97,14 @@ export default function App(){
   }
 
   function total(){
-
     let t = Object.values(scores).reduce((a,b)=>a+b,0);
 
+    // deductions
     Object.values(deductions).forEach(v=>{
       if(v) t -= 10;
     });
 
+    // tyres
     t += tyres * 5;
 
     return t;
@@ -84,6 +121,7 @@ export default function App(){
       judge
     });
 
+    // CLEAR
     setScores({});
     setDeductions({});
     setTyres(0);
@@ -103,11 +141,14 @@ export default function App(){
     return (
       <div style={homeWrap}>
 
-        <h1>🔥 AUTOFEST LIVE SYNC 🔥</h1>
+        <h1>🔥 AUTOFEST 🔥</h1>
 
         <button style={menuBtn} onClick={()=>setScreen("judge")}>Judge Login</button>
         <button style={menuBtn} onClick={()=>setScreen("score")}>Score Sheet</button>
         <button style={menuBtn} onClick={()=>setScreen("board")}>Leaderboard</button>
+
+        <button style={menuBtn} onClick={setAdmin}>Set Admin</button>
+        <button style={menuBtn} onClick={loginAdmin}>Admin Login</button>
 
       </div>
     );
@@ -197,14 +238,14 @@ export default function App(){
 
       {/* BLOWN TYRES */}
       <div>
-        <strong>Blown Tyres</strong><br/>
+        <strong>Blown Tyres (+5 each)</strong><br/>
         <button style={tyres>=1?activeBtn:btn} onClick={()=>setTyres(1)}>1</button>
         <button style={tyres===2?activeBtn:btn} onClick={()=>setTyres(2)}>2</button>
       </div>
 
       {/* DEDUCTIONS */}
       <div>
-        <strong>Deductions</strong><br/>
+        <strong>Deductions (-10 each)</strong><br/>
         {deductionsList.map(d=>(
           <button key={d}
             onClick={()=>toggleDeduction(d)}
@@ -223,7 +264,8 @@ export default function App(){
   );
 }
 
-// STYLES (LOCKED)
+// ---------------- STYLES ----------------
+
 const homeWrap = {background:"#fff",height:"100vh",padding:20,textAlign:"center"};
 const menuBtn = {width:"90%",padding:18,margin:"8px auto",display:"block",fontSize:18};
 

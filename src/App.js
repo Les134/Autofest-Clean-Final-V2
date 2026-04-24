@@ -11,7 +11,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// LOCKED SCORE ROWS
+// FINAL LOCKED SCORE ROWS
 const categories = [
   "Instant Smoke",
   "Volume of Smoke",
@@ -19,6 +19,7 @@ const categories = [
   "Drivers Skill & Control"
 ];
 
+// DEDUCTIONS
 const deductionsList = [
   "Hi Barrier",
   "Reversing / Stall",
@@ -26,6 +27,7 @@ const deductionsList = [
   "Large Fire"
 ];
 
+// CLASSES
 const classes = [
   "V8 Pro",
   "V8 N/A",
@@ -39,10 +41,11 @@ export default function App(){
   const [screen,setScreen] = useState("home");
 
   const [judge,setJudge] = useState("");
-
   const [data,setData] = useState([]);
 
-  const [car,setCar] = useState("");
+  // ENTRY FIELDS
+  const [carNumber,setCarNumber] = useState("");
+  const [carRego,setCarRego] = useState("");
   const [driver,setDriver] = useState("");
 
   const [gender,setGender] = useState("");
@@ -52,6 +55,7 @@ export default function App(){
   const [deductions,setDeductions] = useState({});
   const [tyres,setTyres] = useState(0);
 
+  // 🔥 LIVE DATA
   useEffect(()=>{
     const unsub = onSnapshot(collection(db,"scores"), snap=>{
       setData(snap.docs.map(d=>d.data()));
@@ -59,15 +63,18 @@ export default function App(){
     return ()=>unsub();
   },[]);
 
-  const entryReady = driver.trim() !== "" && car.trim() !== "";
+  // ✅ VALIDATION: AT LEAST ONE REQUIRED
+  const entryValid =
+    carNumber.trim() !== "" ||
+    carRego.trim() !== "";
 
   function setScore(cat,val){
-    if(!entryReady) return;
+    if(!entryValid) return;
     setScores(prev=>({...prev,[cat]:val}));
   }
 
   function toggleDeduction(d){
-    if(!entryReady) return;
+    if(!entryValid) return;
     setDeductions(prev=>({...prev,[d]:!prev[d]}));
   }
 
@@ -85,8 +92,8 @@ export default function App(){
 
   function submit(){
 
-    if(!entryReady){
-      alert("Enter Driver Name and Car Name/Number first");
+    if(!entryValid){
+      alert("Enter Car Number or Car Rego before scoring");
       return;
     }
 
@@ -96,7 +103,8 @@ export default function App(){
     }
 
     addDoc(collection(db,"scores"),{
-      car,
+      carNumber,
+      carRego,
       driver,
       gender,
       carClass,
@@ -104,10 +112,12 @@ export default function App(){
       judge
     });
 
+    // CLEAR
     setScores({});
     setDeductions({});
     setTyres(0);
-    setCar("");
+    setCarNumber("");
+    setCarRego("");
     setDriver("");
     setGender("");
     setCarClass("");
@@ -122,11 +132,19 @@ export default function App(){
   if(screen==="home"){
     return (
       <div style={homeWrap}>
-        <h1>🔥 AUTOFEST 🔥</h1>
+        <h1>🔥 AUTOFEST LIVE SYNC 🔥</h1>
 
-        <button style={menuBtn} onClick={()=>setScreen("judge")}>Judge Login</button>
-        <button style={menuBtn} onClick={()=>setScreen("score")}>Score Sheet</button>
-        <button style={menuBtn} onClick={()=>setScreen("board")}>Leaderboard</button>
+        <button style={menuBtn} onClick={()=>setScreen("judge")}>
+          Judge Login
+        </button>
+
+        <button style={menuBtn} onClick={()=>setScreen("score")}>
+          Score Sheet
+        </button>
+
+        <button style={menuBtn} onClick={()=>setScreen("board")}>
+          Leaderboard
+        </button>
       </div>
     );
   }
@@ -145,7 +163,9 @@ export default function App(){
           </button>
         ))}
 
-        <button onClick={()=>setScreen("home")}>Home</button>
+        <button style={menuBtn} onClick={()=>setScreen("home")}>
+          Home
+        </button>
       </div>
     );
   }
@@ -161,7 +181,7 @@ export default function App(){
 
         {sorted.map((e,i)=>(
           <div key={i}>
-            #{i+1} {e.car} / {e.driver} - {e.total}
+            #{i+1} {e.carNumber || e.carRego} - {e.total}
           </div>
         ))}
 
@@ -177,6 +197,7 @@ export default function App(){
 
       <h2>{judge}</h2>
 
+      {/* DRIVER */}
       <input
         style={input}
         placeholder="Driver Name"
@@ -184,16 +205,25 @@ export default function App(){
         onChange={e=>setDriver(e.target.value)}
       />
 
+      {/* CAR NUMBER */}
       <input
         style={input}
-        placeholder="Car Name / Number"
-        value={car}
-        onChange={e=>setCar(e.target.value)}
+        placeholder="Car Number"
+        value={carNumber}
+        onChange={e=>setCarNumber(e.target.value)}
       />
 
-      {!entryReady && (
-        <div style={{color:"orange", marginBottom:10}}>
-          Enter Driver & Car before scoring
+      {/* CAR REGO */}
+      <input
+        style={input}
+        placeholder="Car Rego / Number"
+        value={carRego}
+        onChange={e=>setCarRego(e.target.value)}
+      />
+
+      {!entryValid && (
+        <div style={{color:"orange",marginBottom:10}}>
+          Enter Car Number or Car Rego to begin scoring
         </div>
       )}
 
@@ -201,7 +231,7 @@ export default function App(){
       <div>
         {classes.map(c=>(
           <button key={c}
-            disabled={!entryReady}
+            disabled={!entryValid}
             onClick={()=>setCarClass(c)}
             style={carClass===c?activeBtn:bigBtn}>
             {c}
@@ -211,8 +241,17 @@ export default function App(){
 
       {/* GENDER */}
       <div>
-        <button disabled={!entryReady} onClick={()=>setGender("Male")} style={gender==="Male"?activeBtn:bigBtn}>Male</button>
-        <button disabled={!entryReady} onClick={()=>setGender("Female")} style={gender==="Female"?activeBtn:bigBtn}>Female</button>
+        <button disabled={!entryValid}
+          onClick={()=>setGender("Male")}
+          style={gender==="Male"?activeBtn:bigBtn}>
+          Male
+        </button>
+
+        <button disabled={!entryValid}
+          onClick={()=>setGender("Female")}
+          style={gender==="Female"?activeBtn:bigBtn}>
+          Female
+        </button>
       </div>
 
       {/* SCORES */}
@@ -222,7 +261,7 @@ export default function App(){
           <div style={row}>
             {Array.from({length:21},(_,i)=>(
               <button key={i}
-                disabled={!entryReady}
+                disabled={!entryValid}
                 onClick={()=>setScore(cat,i)}
                 style={scores[cat]===i?activeBtn:btn}>
                 {i}
@@ -235,8 +274,13 @@ export default function App(){
       {/* TYRES */}
       <div>
         <strong>Blown Tyres (+5 each)</strong><br/>
-        <button disabled={!entryReady} style={tyres>=1?activeBtn:btn} onClick={()=>setTyres(1)}>1</button>
-        <button disabled={!entryReady} style={tyres===2?activeBtn:btn} onClick={()=>setTyres(2)}>2</button>
+        <button disabled={!entryValid}
+          style={tyres>=1?activeBtn:btn}
+          onClick={()=>setTyres(1)}>1</button>
+
+        <button disabled={!entryValid}
+          style={tyres===2?activeBtn:btn}
+          onClick={()=>setTyres(2)}>2</button>
       </div>
 
       {/* DEDUCTIONS */}
@@ -244,7 +288,7 @@ export default function App(){
         <strong>Deductions (-10 each)</strong><br/>
         {deductionsList.map(d=>(
           <button key={d}
-            disabled={!entryReady}
+            disabled={!entryValid}
             onClick={()=>toggleDeduction(d)}
             style={deductions[d]?activeBtn:btn}>
             {d}
@@ -261,12 +305,35 @@ export default function App(){
   );
 }
 
-// STYLES
-const homeWrap = {background:"#fff",height:"100vh",padding:20,textAlign:"center"};
-const menuBtn = {width:"90%",padding:18,margin:"8px auto",display:"block",fontSize:18};
+// ---------------- STYLES ----------------
 
-const scoreWrap = {background:"#111",color:"#fff",padding:20};
-const input = {width:"95%",padding:14,margin:5,fontSize:16};
+const homeWrap = {
+  background:"#fff",
+  height:"100vh",
+  padding:20,
+  textAlign:"center"
+};
+
+const menuBtn = {
+  width:"90%",
+  padding:18,
+  margin:"8px auto",
+  display:"block",
+  fontSize:18
+};
+
+const scoreWrap = {
+  background:"#111",
+  color:"#fff",
+  padding:20
+};
+
+const input = {
+  width:"95%",
+  padding:14,
+  margin:5,
+  fontSize:16
+};
 
 const rowBlock = {marginBottom:20};
 const row = {display:"flex",flexWrap:"wrap"};

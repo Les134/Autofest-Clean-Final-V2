@@ -11,7 +11,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// ✅ FINAL LOCKED ROWS
+// LOCKED SCORE ROWS
 const categories = [
   "Instant Smoke",
   "Volume of Smoke",
@@ -19,7 +19,6 @@ const categories = [
   "Drivers Skill & Control"
 ];
 
-// ✅ DEDUCTIONS
 const deductionsList = [
   "Hi Barrier",
   "Reversing / Stall",
@@ -39,17 +38,13 @@ export default function App(){
 
   const [screen,setScreen] = useState("home");
 
-  // ADMIN
-  const [adminPass,setAdminPass] = useState(localStorage.getItem("admin") || "");
-  const [isAdmin,setIsAdmin] = useState(false);
+  const [judge,setJudge] = useState("");
 
-  // DATA
   const [data,setData] = useState([]);
 
-  // ENTRY
-  const [judge,setJudge] = useState("");
   const [car,setCar] = useState("");
   const [driver,setDriver] = useState("");
+
   const [gender,setGender] = useState("");
   const [carClass,setCarClass] = useState("");
 
@@ -57,7 +52,6 @@ export default function App(){
   const [deductions,setDeductions] = useState({});
   const [tyres,setTyres] = useState(0);
 
-  // LIVE DATA
   useEffect(()=>{
     const unsub = onSnapshot(collection(db,"scores"), snap=>{
       setData(snap.docs.map(d=>d.data()));
@@ -65,52 +59,41 @@ export default function App(){
     return ()=>unsub();
   },[]);
 
-  // ---------------- ADMIN ----------------
-
-  function setAdmin(){
-    const pass = prompt("Set Admin Password");
-    if(pass){
-      localStorage.setItem("admin",pass);
-      setAdminPass(pass);
-      alert("Admin Password Set");
-    }
-  }
-
-  function loginAdmin(){
-    const pass = prompt("Enter Admin Password");
-    if(pass === adminPass){
-      setIsAdmin(true);
-      alert("Admin Logged In");
-    } else {
-      alert("Incorrect Password");
-    }
-  }
-
-  // ---------------- SCORING ----------------
+  const entryReady = driver.trim() !== "" && car.trim() !== "";
 
   function setScore(cat,val){
+    if(!entryReady) return;
     setScores(prev=>({...prev,[cat]:val}));
   }
 
   function toggleDeduction(d){
+    if(!entryReady) return;
     setDeductions(prev=>({...prev,[d]:!prev[d]}));
   }
 
   function total(){
     let t = Object.values(scores).reduce((a,b)=>a+b,0);
 
-    // deductions
     Object.values(deductions).forEach(v=>{
       if(v) t -= 10;
     });
 
-    // tyres
     t += tyres * 5;
 
     return t;
   }
 
   function submit(){
+
+    if(!entryReady){
+      alert("Enter Driver Name and Car Name/Number first");
+      return;
+    }
+
+    if(Object.keys(scores).length < categories.length){
+      alert("Complete all scoring categories");
+      return;
+    }
 
     addDoc(collection(db,"scores"),{
       car,
@@ -121,7 +104,6 @@ export default function App(){
       judge
     });
 
-    // CLEAR
     setScores({});
     setDeductions({});
     setTyres(0);
@@ -140,16 +122,11 @@ export default function App(){
   if(screen==="home"){
     return (
       <div style={homeWrap}>
-
         <h1>🔥 AUTOFEST 🔥</h1>
 
         <button style={menuBtn} onClick={()=>setScreen("judge")}>Judge Login</button>
         <button style={menuBtn} onClick={()=>setScreen("score")}>Score Sheet</button>
         <button style={menuBtn} onClick={()=>setScreen("board")}>Leaderboard</button>
-
-        <button style={menuBtn} onClick={setAdmin}>Set Admin</button>
-        <button style={menuBtn} onClick={loginAdmin}>Admin Login</button>
-
       </div>
     );
   }
@@ -200,13 +177,31 @@ export default function App(){
 
       <h2>{judge}</h2>
 
-      <input style={input} placeholder="Car #" value={car} onChange={e=>setCar(e.target.value)} />
-      <input style={input} placeholder="Driver" value={driver} onChange={e=>setDriver(e.target.value)} />
+      <input
+        style={input}
+        placeholder="Driver Name"
+        value={driver}
+        onChange={e=>setDriver(e.target.value)}
+      />
+
+      <input
+        style={input}
+        placeholder="Car Name / Number"
+        value={car}
+        onChange={e=>setCar(e.target.value)}
+      />
+
+      {!entryReady && (
+        <div style={{color:"orange", marginBottom:10}}>
+          Enter Driver & Car before scoring
+        </div>
+      )}
 
       {/* CLASS */}
       <div>
         {classes.map(c=>(
           <button key={c}
+            disabled={!entryReady}
             onClick={()=>setCarClass(c)}
             style={carClass===c?activeBtn:bigBtn}>
             {c}
@@ -216,8 +211,8 @@ export default function App(){
 
       {/* GENDER */}
       <div>
-        <button onClick={()=>setGender("Male")} style={gender==="Male"?activeBtn:bigBtn}>Male</button>
-        <button onClick={()=>setGender("Female")} style={gender==="Female"?activeBtn:bigBtn}>Female</button>
+        <button disabled={!entryReady} onClick={()=>setGender("Male")} style={gender==="Male"?activeBtn:bigBtn}>Male</button>
+        <button disabled={!entryReady} onClick={()=>setGender("Female")} style={gender==="Female"?activeBtn:bigBtn}>Female</button>
       </div>
 
       {/* SCORES */}
@@ -227,6 +222,7 @@ export default function App(){
           <div style={row}>
             {Array.from({length:21},(_,i)=>(
               <button key={i}
+                disabled={!entryReady}
                 onClick={()=>setScore(cat,i)}
                 style={scores[cat]===i?activeBtn:btn}>
                 {i}
@@ -236,11 +232,11 @@ export default function App(){
         </div>
       ))}
 
-      {/* BLOWN TYRES */}
+      {/* TYRES */}
       <div>
         <strong>Blown Tyres (+5 each)</strong><br/>
-        <button style={tyres>=1?activeBtn:btn} onClick={()=>setTyres(1)}>1</button>
-        <button style={tyres===2?activeBtn:btn} onClick={()=>setTyres(2)}>2</button>
+        <button disabled={!entryReady} style={tyres>=1?activeBtn:btn} onClick={()=>setTyres(1)}>1</button>
+        <button disabled={!entryReady} style={tyres===2?activeBtn:btn} onClick={()=>setTyres(2)}>2</button>
       </div>
 
       {/* DEDUCTIONS */}
@@ -248,6 +244,7 @@ export default function App(){
         <strong>Deductions (-10 each)</strong><br/>
         {deductionsList.map(d=>(
           <button key={d}
+            disabled={!entryReady}
             onClick={()=>toggleDeduction(d)}
             style={deductions[d]?activeBtn:btn}>
             {d}
@@ -264,8 +261,7 @@ export default function App(){
   );
 }
 
-// ---------------- STYLES ----------------
-
+// STYLES
 const homeWrap = {background:"#fff",height:"100vh",padding:20,textAlign:"center"};
 const menuBtn = {width:"90%",padding:18,margin:"8px auto",display:"block",fontSize:18};
 

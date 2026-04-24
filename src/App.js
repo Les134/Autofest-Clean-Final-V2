@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { initializeApp } from "firebase/app";
-import { getFirestore, collection, addDoc, onSnapshot, doc, setDoc } from "firebase/firestore";
+import { getFirestore, collection, addDoc, onSnapshot, doc, setDoc, getDocs, deleteDoc } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: "AIzaSyB5NhDJMBwhMpUUL3XIHUnISTuCeQkXKS8",
@@ -11,23 +11,22 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
+const ADMIN_PASS = "autofest123"; // 🔐 change this
+
 const categories = ["Smoke","Commitment","Style","Control","Entertainment"];
 const classes = ["V8 Pro","V8 N/A","6 Cyl Pro","6 Cyl N/A","Rotary"];
 
 export default function App(){
 
-  // EVENT CONTROL
+  const [screen,setScreen] = useState("home");
+
   const [eventName,setEventName] = useState("");
   const [eventId,setEventId] = useState("");
-  const [locked,setLocked] = useState(false);
+  const [events,setEvents] = useState([]);
 
   const [judges,setJudges] = useState(["","","","","",""]);
   const [judge,setJudge] = useState("");
 
-  const [screen,setScreen] = useState("home");
-
-  // SCORING
-  const [scores,setScores] = useState({});
   const [data,setData] = useState([]);
 
   const [car,setCar] = useState("");
@@ -35,7 +34,20 @@ export default function App(){
   const [gender,setGender] = useState("");
   const [carClass,setCarClass] = useState("");
 
-  // 🔥 LOAD DATA PER EVENT
+  const [scores,setScores] = useState({});
+
+  // LOAD EVENTS
+  useEffect(()=>{
+    loadEvents();
+  },[]);
+
+  function loadEvents(){
+    getDocs(collection(db,"events")).then(snap=>{
+      setEvents(snap.docs.map(d=>({id:d.id,...d.data()})));
+    });
+  }
+
+  // LOAD SCORES
   useEffect(()=>{
     if(!eventId) return;
 
@@ -56,7 +68,6 @@ export default function App(){
     const id = Date.now().toString();
 
     setEventId(id);
-    setLocked(true);
 
     setDoc(doc(db,"events",id),{
       name:eventName,
@@ -64,7 +75,7 @@ export default function App(){
       created:Date.now()
     });
 
-    alert("Event Locked");
+    setScreen("judgeSelect");
   }
 
   function submit(){
@@ -80,7 +91,6 @@ export default function App(){
       judge
     });
 
-    // CLEAR
     setScores({});
     setCar("");
     setDriver("");
@@ -103,12 +113,28 @@ export default function App(){
     return Object.values(map).sort((a,b)=>b.total-a.total);
   }
 
-  // ---------------- HOME ----------------
+  function deleteEvent(id){
+
+    const pass = prompt("Enter admin password");
+
+    if(pass !== ADMIN_PASS){
+      alert("Incorrect password");
+      return;
+    }
+
+    deleteDoc(doc(db,"events",id)).then(()=>{
+      alert("Event deleted");
+      loadEvents();
+    });
+  }
+
+  // -------- HOME --------
 
   if(screen==="home"){
     return (
       <div style={{padding:20}}>
-        <h2>Event Setup</h2>
+
+        <h2>Create Event</h2>
 
         <input placeholder="Event Name"
           value={eventName}
@@ -129,16 +155,33 @@ export default function App(){
 
         <button onClick={lockEvent}>Lock Event</button>
 
-        <br/><br/>
+        <hr/>
 
-        <button onClick={()=>setScreen("judgeSelect")}>
-          Enter Scoring
-        </button>
+        <h2>Past Events</h2>
+
+        {events.map(e=>(
+          <div key={e.id} style={{marginBottom:10}}>
+            {e.name}
+
+            <button onClick={()=>{
+              setEventId(e.id);
+              setEventName(e.name);
+              setScreen("board");
+            }}>
+              Open
+            </button>
+
+            <button onClick={()=>deleteEvent(e.id)}>
+              Delete
+            </button>
+          </div>
+        ))}
+
       </div>
     );
   }
 
-  // ---------------- JUDGE SELECT ----------------
+  // -------- JUDGE SELECT --------
 
   if(screen==="judgeSelect"){
     return (
@@ -158,12 +201,12 @@ export default function App(){
     );
   }
 
-  // ---------------- LEADERBOARD ----------------
+  // -------- LEADERBOARD --------
 
   if(screen==="board"){
     return (
       <div style={{padding:20}}>
-        <h2>{eventName} Leaderboard</h2>
+        <h2>{eventName}</h2>
 
         {combine().map((e,i)=>(
           <div key={i}>
@@ -176,7 +219,7 @@ export default function App(){
     );
   }
 
-  // ---------------- SCORE ----------------
+  // -------- SCORE --------
 
   return (
     <div style={{padding:20}}>

@@ -156,14 +156,21 @@ export default function App(){
     deleteDoc(doc(db,"scores_"+eventId,id));
   }
 
+  // ✅ FIXED COMBINE (PRESERVES CLASS + GENDER)
   function combine(){
-    const map={};
+    const map = {};
 
     data.forEach(e=>{
       const key = (e.carNumber || e.carRego) + "_" + e.driver;
 
       if(!map[key]){
-        map[key]={...e,total:0,deductions:[]};
+        map[key] = {
+          ...e,
+          total: 0,
+          deductions: [],
+          carClass: e.carClass || "Unassigned",
+          gender: e.gender || ""
+        };
       }
 
       map[key].total += e.total;
@@ -178,16 +185,12 @@ export default function App(){
 
   const combined = combine();
 
-  // ✅ FIXED FORMAT WITH CLASSES
   function format(e){
     const ded = e.deductions?.length
       ? ` (${[...new Set(e.deductions)].join(", ")})`
       : "";
 
-    const cls = e.carClass || "Unassigned";
-    const gen = e.gender || "";
-
-    return `${e.driver} / Car Number: ${e.carNumber || e.carRego} - Score: ${e.total}${ded} [${cls}${gen ? " - " + gen : ""}]`;
+    return `${e.driver} / Car Number: ${e.carNumber || e.carRego} - Score: ${e.total}${ded} [${e.carClass} - ${e.gender}]`;
   }
 
   if(screen==="home"){

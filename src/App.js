@@ -1,11 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { initializeApp } from "firebase/app";
-import {
-  getFirestore,
-  collection,
-  addDoc,
-  onSnapshot
-} from "firebase/firestore";
+import { getFirestore, collection, addDoc, onSnapshot } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: "AIzaSyB5NhDJMBwhMpUUL3XIHUnISTuCeQkXKS8",
@@ -51,7 +46,10 @@ export default function App(){
   const [deductions,setDeductions] = useState({});
   const [tyres,setTyres] = useState({one:false,two:false});
 
-  // 🔁 LOAD SCORES PER EVENT ONLY
+  const [adminPass,setAdminPass] = useState(localStorage.getItem("adminPass") || "");
+  const [adminLogged,setAdminLogged] = useState(false);
+
+  // LOAD EVENT DATA ONLY
   useEffect(()=>{
     if(!eventId) return;
 
@@ -106,9 +104,12 @@ export default function App(){
       eventId
     });
 
+    // RESET EVERYTHING (UNHIGHLIGHT)
     setScores({});
     setDeductions({});
     setTyres({one:false,two:false});
+    setCarClass("");
+    setGender("");
     setDriver("");
     setCarNumber("");
     setCarRego("");
@@ -127,13 +128,51 @@ export default function App(){
       map[key].total += e.total;
     });
 
-    return Object.values(map).sort((a,b)=>b.total-a.total);
+    return Object.values(map);
   }
 
   const combined = combine();
 
+  function groupedByClass(){
+    const grouped = {};
+    classes.forEach(c=>grouped[c]=[]);
+
+    combined.forEach(e=>{
+      if(grouped[e.carClass]){
+        grouped[e.carClass].push(e);
+      }
+    });
+
+    Object.keys(grouped).forEach(c=>{
+      grouped[c].sort((a,b)=>b.total-a.total);
+    });
+
+    return grouped;
+  }
+
+  const classBoards = groupedByClass();
+
   function format(e){
-    return `${e.driver} / Car Number: ${e.carNumber || e.carRego} - Score: ${e.total} [${e.carClass}]`;
+    return `${e.driver} / Car Number: ${e.carNumber || e.carRego} - Score: ${e.total} (${e.gender})`;
+  }
+
+  // ADMIN
+  function setAdmin(){
+    const pass = prompt("Set Admin Password");
+    if(pass){
+      localStorage.setItem("adminPass",pass);
+      setAdminPass(pass);
+    }
+  }
+
+  function loginAdmin(){
+    const pass = prompt("Enter Admin Password");
+    if(pass === adminPass){
+      setAdminLogged(true);
+      alert("Admin Logged In");
+    } else {
+      alert("Wrong Password");
+    }
   }
 
   // ---------------- HOME ----------------
@@ -154,8 +193,8 @@ export default function App(){
         <button style={menuBtn} onClick={()=>setScreen("top30")}>Top 30</button>
 
         <button style={menuBtn}>Event Archive</button>
-        <button style={menuBtn}>Set Admin</button>
-        <button style={menuBtn}>Admin Login</button>
+        <button style={menuBtn} onClick={setAdmin}>Set Admin</button>
+        <button style={menuBtn} onClick={loginAdmin}>Admin Login</button>
       </div>
     );
   }
@@ -188,7 +227,7 @@ export default function App(){
 
         <button onClick={()=>{
           const newId = Date.now().toString();
-          setEventId(newId);   // 🔑 NEW EVENT = NEW DATASET
+          setEventId(newId);
           setScreen("score");
         }}>
           Lock Event
@@ -204,31 +243,16 @@ export default function App(){
   if(screen==="leaderboard"){
     return (
       <div style={{padding:20}}>
-        <h2>Leaderboard</h2>
+        <h2>Class Leaderboards</h2>
 
-        {combined.map((e,i)=>(
-          <div key={i}>
-            #{i+1} {format(e)}
-          </div>
-        ))}
-
-        <button onClick={()=>setScreen("home")}>Home</button>
-      </div>
-    );
-  }
-
-  if(screen==="top150" || screen==="top30"){
-    let list = combined;
-    if(screen==="top150") list = combined.slice(0,150);
-    if(screen==="top30") list = combined.slice(0,30);
-
-    return (
-      <div style={{padding:20}}>
-        <h2>{screen.toUpperCase()}</h2>
-
-        {list.map((e,i)=>(
-          <div key={i}>
-            #{i+1} {format(e)}
+        {classes.map(c=>(
+          <div key={c}>
+            <h3>{c}</h3>
+            {classBoards[c].map((e,i)=>(
+              <div key={i}>
+                #{i+1} {format(e)}
+              </div>
+            ))}
           </div>
         ))}
 
@@ -242,7 +266,7 @@ export default function App(){
   return (
     <div style={scoreWrap}>
 
-      <h2>{judge}</h2>
+      <h2>{judge || "Judge"}</h2>
 
       <input style={input} placeholder="Driver Name" value={driver} onChange={e=>setDriver(e.target.value)} />
       <input style={input} placeholder="Car Number" value={carNumber} onChange={e=>setCarNumber(e.target.value)} />

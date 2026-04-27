@@ -322,4 +322,3 @@ const bigBtn = {padding:14,margin:6};
 const activeBtn = {...btn,background:"red",color:"#fff"};
 
 const submitBtn = {padding:18,margin:10};
-🎯 RESULT

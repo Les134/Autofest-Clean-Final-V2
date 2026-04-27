@@ -92,7 +92,8 @@ export default function App(){
       gender,
       total: total(),
       deductions: activeDeductions,
-      judge
+      judge,       // ✅ FIX
+      eventName    // ✅ FIX
     });
 
     setScores({});
@@ -120,25 +121,6 @@ export default function App(){
   }
 
   const combined = combine();
-
-  function classBoards(){
-    const grouped = {};
-    classes.forEach(c=>grouped[c]=[]);
-
-    combined.forEach(e=>{
-      if(grouped[e.carClass]){
-        grouped[e.carClass].push(e);
-      }
-    });
-
-    Object.keys(grouped).forEach(c=>{
-      grouped[c].sort((a,b)=>b.total-a.total);
-    });
-
-    return grouped;
-  }
-
-  const classData = classBoards();
 
   function format(e){
     return `${e.driver} / Car Number: ${e.carNumber || e.carRego} - Score: ${e.total} [${e.carClass}]`;
@@ -168,7 +150,7 @@ export default function App(){
     );
   }
 
-  // ---------------- EVENT + JUDGE LOGIN ----------------
+  // ---------------- EVENT LOGIN ----------------
 
   if(screen==="eventLogin"){
     return (
@@ -205,14 +187,11 @@ export default function App(){
   if(screen==="leaderboard"){
     return (
       <div style={{padding:20}}>
-        <h2>Class Results</h2>
+        <h2>Leaderboard</h2>
 
-        {classes.map(c=>(
-          <div key={c}>
-            <h3>{c}</h3>
-            {classData[c].map((e,i)=>(
-              <div key={i}>#{i+1} {format(e)}</div>
-            ))}
+        {combined.map((e,i)=>(
+          <div key={i}>
+            #{i+1} {format(e)}
           </div>
         ))}
 
@@ -220,8 +199,6 @@ export default function App(){
       </div>
     );
   }
-
-  // ---------------- TOP 150 / 30 ----------------
 
   if(screen==="top150" || screen==="top30"){
     let list = combined;
@@ -282,10 +259,21 @@ export default function App(){
         </div>
       ))}
 
+      {/* FIXED TYRES */}
       <div>
         <strong>Blown Tyres</strong><br/>
-        <button onClick={()=>setTyres(p=>({...p,one:!p.one}))}>1</button>
-        <button onClick={()=>setTyres(p=>({...p,two:!p.two}))}>2</button>
+        <button
+          onClick={()=>setTyres(p=>({...p,one:!p.one}))}
+          style={tyres.one ? activeBtn : btn}
+        >
+          1
+        </button>
+        <button
+          onClick={()=>setTyres(p=>({...p,two:!p.two}))}
+          style={tyres.two ? activeBtn : btn}
+        >
+          2
+        </button>
       </div>
 
       <div>
@@ -308,7 +296,7 @@ export default function App(){
   );
 }
 
-// STYLES (UNCHANGED)
+// STYLES
 const homeWrap = {background:"#fff",height:"100vh",padding:20,textAlign:"center"};
 const menuBtn = {width:"90%",padding:18,margin:"8px auto",fontSize:18};
 

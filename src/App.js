@@ -1,3 +1,5 @@
+👉 Copy everything below
+
 import React, { useState, useEffect } from "react";
 import { initializeApp } from "firebase/app";
 import {
@@ -346,11 +348,3 @@ const bigBtn = {padding:14,margin:6};
 const activeBtn = {...btn,background:"red",color:"#fff"};
 
 const submitBtn = {padding:18,margin:10};
-🎯 RESULT
-
-✔ Scoresheets back
-✔ Judges linked correctly
-✔ Event flow working
-✔ No extra changes
-
-If anything else breaks now, it’ll be very small adjustments only 👍

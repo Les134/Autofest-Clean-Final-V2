@@ -57,7 +57,6 @@ export default function App(){
   const [deductions,setDeductions] = useState({});
   const [tyres,setTyres] = useState({one:false,two:false});
 
-  // ADMIN
   const [adminPass,setAdminPass] = useState(localStorage.getItem("adminPass") || "");
   const [adminLogged,setAdminLogged] = useState(false);
 
@@ -80,14 +79,12 @@ export default function App(){
     }
   }
 
-  // LOAD EVENTS
   useEffect(()=>{
     getDocs(collection(db,"events")).then(snap=>{
       setEvents(snap.docs.map(d=>({id:d.id,...d.data()})));
     });
   },[]);
 
-  // LOAD SCORES
   useEffect(()=>{
     if(!eventId) return;
 
@@ -181,15 +178,18 @@ export default function App(){
 
   const combined = combine();
 
+  // ✅ FIXED FORMAT WITH CLASSES
   function format(e){
     const ded = e.deductions?.length
       ? ` (${[...new Set(e.deductions)].join(", ")})`
       : "";
 
-    return `${e.driver} / Car Number: ${e.carNumber || e.carRego} - Score: ${e.total}${ded} [${e.carClass} - ${e.gender}]`;
+    const cls = e.carClass || "Unassigned";
+    const gen = e.gender || "";
+
+    return `${e.driver} / Car Number: ${e.carNumber || e.carRego} - Score: ${e.total}${ded} [${cls}${gen ? " - " + gen : ""}]`;
   }
 
-  // HOME
   if(screen==="home"){
     return (
       <div style={homeWrap}>
@@ -211,7 +211,6 @@ export default function App(){
     );
   }
 
-  // EVENT LOGIN
   if(screen==="eventLogin"){
     return (
       <div style={{padding:20}}>
@@ -246,7 +245,6 @@ export default function App(){
     );
   }
 
-  // JUDGE SELECT
   if(screen==="judgeSelect"){
     return (
       <div style={homeWrap}>
@@ -262,7 +260,6 @@ export default function App(){
     );
   }
 
-  // ARCHIVE
   if(screen==="archive"){
     return (
       <div style={{padding:20}}>
@@ -280,7 +277,6 @@ export default function App(){
     );
   }
 
-  // LEADERBOARDS
   if(screen==="leaderboard" || screen==="top150" || screen==="top30"){
 
     let list = combined;
@@ -303,7 +299,6 @@ export default function App(){
     );
   }
 
-  // SCORE
   return (
     <div style={scoreWrap}>
       <h2>Judge: {judge}</h2>
@@ -353,7 +348,6 @@ export default function App(){
   );
 }
 
-// STYLES
 const homeWrap = {background:"#fff",height:"100vh",padding:20,textAlign:"center"};
 const menuBtn = {width:"90%",padding:18,margin:"8px auto",fontSize:18};
 

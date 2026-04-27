@@ -82,11 +82,9 @@ export default function App(){
 
   useEffect(()=>{
     if(!eventId) return;
-
     const unsub = onSnapshot(collection(db,"scores_"+eventId), snap=>{
       setData(snap.docs.map(d=>({id:d.id,...d.data()})));
     });
-
     return ()=>unsub();
   },[eventId]);
 
@@ -106,21 +104,14 @@ export default function App(){
 
   function total(){
     let t = Object.values(scores).reduce((a,b)=>a+b,0);
-
-    Object.values(deductions).forEach(v=>{
-      if(v) t -= 10;
-    });
-
+    Object.values(deductions).forEach(v=>{ if(v) t -= 10; });
     if(tyres.one) t += 5;
     if(tyres.two) t += 5;
-
     return t;
   }
 
   function submit(){
     if(!entryValid) return alert("Complete all fields");
-
-    const activeDeductions = Object.keys(deductions).filter(d=>deductions[d]);
 
     addDoc(collection(db,"scores_"+eventId),{
       driver,
@@ -129,7 +120,7 @@ export default function App(){
       carClass,
       gender,
       total: total(),
-      deductions: activeDeductions,
+      deductions: Object.keys(deductions).filter(d=>deductions[d]),
       judge
     });
 
@@ -148,7 +139,9 @@ export default function App(){
     deleteDoc(doc(db,"scores_"+eventId,id));
   }
 
+  // ✅ ONLY ACTIVE JUDGES COUNTED
   function combine(){
+    const activeJudges = judges.filter(j => j && j.trim() !== "");
     const map = {};
 
     data.forEach(e=>{
@@ -159,19 +152,20 @@ export default function App(){
           ...e,
           total: 0,
           deductions: [],
+          judgeSet: new Set(),
           carClass: e.carClass || "Unassigned",
           gender: e.gender || "Unassigned"
         };
       }
 
       map[key].total += e.total;
-
-      if(e.deductions){
-        map[key].deductions.push(...e.deductions);
-      }
+      if(e.deductions) map[key].deductions.push(...e.deductions);
+      if(e.judge) map[key].judgeSet.add(e.judge);
     });
 
-    return Object.values(map).sort((a,b)=>b.total-a.total);
+    return Object.values(map)
+      .filter(e => e.judgeSet.size === activeJudges.length)
+      .sort((a,b)=>b.total-a.total);
   }
 
   const combined = combine();
@@ -180,7 +174,6 @@ export default function App(){
     const ded = e.deductions?.length
       ? ` (${[...new Set(e.deductions)].join(", ")})`
       : "";
-
     return `${e.driver} / Car Number: ${e.carNumber || e.carRego} - Score: ${e.total}${ded} [${e.carClass} - ${e.gender}]`;
   }
 
@@ -189,63 +182,14 @@ export default function App(){
     return (
       <div style={homeWrap}>
         <h1>🔥 AUTOFEST LIVE SYNC 🔥</h1>
-
         <button style={menuBtn} onClick={()=>setScreen("eventLogin")}>Event and Judge Login</button>
         <button style={menuBtn} onClick={()=>setScreen("judgeSelect")}>Judge Login</button>
-
         <button style={menuBtn} onClick={()=>setScreen("leaderboard")}>Leaderboard</button>
         <button style={menuBtn} onClick={()=>setScreen("top150")}>Top 150</button>
         <button style={menuBtn} onClick={()=>setScreen("top30")}>Top 30</button>
         <button style={menuBtn} onClick={()=>setScreen("classes")}>Classes</button>
-
         <button style={menuBtn} onClick={adminSetup}>Set Admin</button>
         <button style={menuBtn} onClick={adminLogin}>Admin Login</button>
-      </div>
-    );
-  }
-
-  // EVENT LOGIN
-  if(screen==="eventLogin"){
-    return (
-      <div style={{padding:20}}>
-        <h2>Setup Event</h2>
-
-        <input placeholder="Event Name" value={eventName} onChange={e=>setEventName(e.target.value)} />
-
-        {judges.map((j,i)=>(
-          <input key={i} placeholder={`Judge ${i+1}`} value={judges[i]}
-            onChange={e=>{
-              const copy=[...judges];
-              copy[i]=e.target.value;
-              setJudges(copy);
-            }}
-          />
-        ))}
-
-        <button onClick={async ()=>{
-          const id = Date.now().toString();
-          await setDoc(doc(db,"events",id),{ name:eventName, judges });
-          setEventId(id);
-          setScreen("judgeSelect");
-        }}>
-          Lock Event
-        </button>
-      </div>
-    );
-  }
-
-  // JUDGE SELECT
-  if(screen==="judgeSelect"){
-    return (
-      <div style={homeWrap}>
-        <h2>Select Judge</h2>
-
-        {judges.map((j,i)=>(
-          <button key={i} style={menuBtn}
-            onClick={()=>{ setJudge(j || ("Judge "+(i+1))); setScreen("score"); }}>
-            {j || ("Judge "+(i+1))}
-          </button>
-        ))}
       </div>
     );
   }
@@ -259,7 +203,7 @@ export default function App(){
 
     if(screen==="classes"){
       const grouped = {};
-      classes.forEach(c => grouped[c] = []);
+      classes.forEach(c => grouped[c]=[]);
       combined.forEach(e=>{
         if(grouped[e.carClass]) grouped[e.carClass].push(e);
       });
@@ -267,7 +211,6 @@ export default function App(){
       return (
         <div style={{padding:20}}>
           <h2>CLASSES</h2>
-
           {classes.map(c=>(
             <div key={c}>
               <h3>{c}</h3>
@@ -276,7 +219,6 @@ export default function App(){
               ))}
             </div>
           ))}
-
           <button onClick={()=>setScreen("score")}>Return to Scoresheet</button>
           <button onClick={()=>setScreen("home")}>Home</button>
         </div>
@@ -286,14 +228,12 @@ export default function App(){
     return (
       <div style={{padding:20}}>
         <h2>{screen.toUpperCase()}</h2>
-
         {list.map((e,i)=>(
           <div key={i}>
             #{i+1} {format(e)}
             {adminLogged && <button onClick={()=>deleteScore(e.id)}>Delete</button>}
           </div>
         ))}
-
         <button onClick={()=>setScreen("score")}>Return to Scoresheet</button>
         <button onClick={()=>setScreen("home")}>Home</button>
       </div>

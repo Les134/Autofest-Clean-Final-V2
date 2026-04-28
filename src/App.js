@@ -44,6 +44,7 @@ export default function App(){
   const [eventName,setEventName] = useState("");
   const [eventId,setEventId] = useState("");
   const [joinId,setJoinId] = useState("");
+  const [eventLocked,setEventLocked] = useState(false);
 
   const [judges,setJudges] = useState(["","","","","",""]);
   const [judge,setJudge] = useState("");
@@ -92,20 +93,12 @@ export default function App(){
     if(screen !== "score") return;
 
     const save = {
-      driver,
-      carNumber,
-      carRego,
-      carClass,
-      gender,
-      scores,
-      deductions,
-      tyres
+      driver,carNumber,carRego,carClass,gender,scores,deductions,tyres
     };
-
     localStorage.setItem("currentScore", JSON.stringify(save));
   },[driver,carNumber,carRego,carClass,gender,scores,deductions,tyres,screen]);
 
-  // RESTORE SCORE ONLY WHEN ENTERING SCORE SCREEN
+  // RESTORE SCORE
   useEffect(()=>{
     if(screen !== "score") return;
 
@@ -166,14 +159,16 @@ export default function App(){
   async function submit(){
     if(!entryValid) return alert("Complete all fields");
 
+    const eventSnap = await getDoc(doc(db,"events",eventId));
+    if(eventSnap.data()?.locked){
+      alert("Event locked 🔒");
+      return;
+    }
+
     const uniqueId = `${carNumber || carRego}_${driver}_${judge}`;
 
     await setDoc(doc(db,"scores_"+eventId,uniqueId),{
-      driver,
-      carNumber,
-      carRego,
-      carClass,
-      gender,
+      driver,carNumber,carRego,carClass,gender,
       total: total(),
       deductions: Object.keys(deductions).filter(d=>deductions[d]),
       judge
@@ -191,19 +186,24 @@ export default function App(){
     setCarRego("");
   }
 
+  async function deleteScore(id){
+    if(!adminLogged) return alert("Admin only");
+
+    const snap = await getDoc(doc(db,"events",eventId));
+    if(snap.data()?.locked){
+      return alert("Event locked 🔒");
+    }
+
+    deleteDoc(doc(db,"scores_"+eventId,id));
+  }
+
   function combine(){
     const map = {};
-
     data.forEach(e=>{
       const key = (e.carNumber || e.carRego) + "_" + e.driver;
-
-      if(!map[key]){
-        map[key] = {...e,total:0};
-      }
-
+      if(!map[key]) map[key] = {...e,total:0};
       map[key].total += e.total;
     });
-
     return Object.values(map).sort((a,b)=>b.total-a.total);
   }
 
@@ -231,13 +231,45 @@ export default function App(){
       <div style={{padding:20}}>
         <input placeholder="Event Name" value={eventName} onChange={e=>setEventName(e.target.value)} />
 
+        {judges.map((j,i)=>(
+          <input key={i} disabled={eventLocked}
+            placeholder={`Judge ${i+1}`}
+            value={judges[i]}
+            onChange={e=>{
+              const copy=[...judges];
+              copy[i]=e.target.value;
+              setJudges(copy);
+            }}
+          />
+        ))}
+
         <button onClick={async ()=>{
+          const clean = judges.filter(j=>j.trim()!=="");
           const id = Date.now().toString();
-          await setDoc(doc(db,"events",id),{name:eventName,judges});
+
+          await setDoc(doc(db,"events",id),{
+            name:eventName,
+            judges:clean,
+            locked:false
+          });
+
           setEventId(id);
+          setJudges(clean);
           setScreen("judgeSelect");
         }}>
           Lock Event
+        </button>
+
+        <button onClick={async ()=>{
+          await setDoc(doc(db,"events",eventId),{
+            name:eventName,
+            judges,
+            locked:true
+          });
+          setEventLocked(true);
+          alert("Event Locked 🔒");
+        }}>
+          FINAL LOCK 🔒
         </button>
 
         <input placeholder="Event ID" value={joinId} onChange={e=>setJoinId(e.target.value)} />
@@ -245,7 +277,11 @@ export default function App(){
         <button onClick={async ()=>{
           const snap = await getDoc(doc(db,"events",joinId));
           if(!snap.exists()) return alert("Event not found");
+
+          const data = snap.data();
           setEventId(joinId);
+          setJudges(data.judges);
+          setEventLocked(data.locked || false);
           setScreen("judgeSelect");
         }}>
           Join Event

@@ -44,7 +44,6 @@ export default function App(){
   const [eventName,setEventName] = useState("");
   const [eventId,setEventId] = useState("");
   const [joinId,setJoinId] = useState("");
-  const [eventLocked,setEventLocked] = useState(false);
 
   const [judges,setJudges] = useState(["","","","","",""]);
   const [judge,setJudge] = useState("");
@@ -62,10 +61,7 @@ export default function App(){
   const [deductions,setDeductions] = useState({});
   const [tyres,setTyres] = useState({one:false,two:false});
 
-  const [adminPass,setAdminPass] = useState(localStorage.getItem("adminPass") || "");
-  const [adminLogged,setAdminLogged] = useState(false);
-
-  // LOAD EVENT
+  // LOAD SAVED EVENT
   useEffect(()=>{
     const savedEvent = localStorage.getItem("eventId");
     const savedJudges = localStorage.getItem("judges");
@@ -77,34 +73,25 @@ export default function App(){
   // LIVE SYNC
   useEffect(()=>{
     if(!eventId) return;
-
-    const unsub = onSnapshot(
-      collection(db,"scores_"+eventId),
-      snap=>{
-        setData(snap.docs.map(d=>({id:d.id,...d.data()})));
-      }
-    );
-
+    const unsub = onSnapshot(collection(db,"scores_"+eventId), snap=>{
+      setData(snap.docs.map(d=>({id:d.id,...d.data()})));
+    });
     return ()=>unsub();
   },[eventId]);
 
   // SAVE SCORE STATE
   useEffect(()=>{
     if(screen !== "score") return;
-
-    const save = {
+    localStorage.setItem("currentScore", JSON.stringify({
       driver,carNumber,carRego,carClass,gender,scores,deductions,tyres
-    };
-    localStorage.setItem("currentScore", JSON.stringify(save));
+    }));
   },[driver,carNumber,carRego,carClass,gender,scores,deductions,tyres,screen]);
 
   // RESTORE SCORE
   useEffect(()=>{
     if(screen !== "score") return;
-
     const saved = localStorage.getItem("currentScore");
     if(!saved) return;
-
     const s = JSON.parse(saved);
 
     setDriver(s.driver || "");
@@ -117,37 +104,6 @@ export default function App(){
     setTyres(s.tyres || {one:false,two:false});
   },[screen]);
 
-  function adminSetup(){
-    const pass = prompt("Set Admin Password");
-    if(pass){
-      localStorage.setItem("adminPass",pass);
-      setAdminPass(pass);
-    }
-  }
-
-  function adminLogin(){
-    const pass = prompt("Enter Admin Password");
-    if(pass === adminPass){
-      setAdminLogged(true);
-    } else {
-      alert("Wrong Password");
-    }
-  }
-
-  const entryValid =
-    (carNumber.trim() !== "" || carRego.trim() !== "") &&
-    carClass !== "" &&
-    gender !== "";
-
-  function setScore(cat,val){
-    if(!entryValid) return;
-    setScores(prev=>({...prev,[cat]:val}));
-  }
-
-  function toggleDeduction(d){
-    setDeductions(prev=>({...prev,[d]:!prev[d]}));
-  }
-
   function total(){
     let t = Object.values(scores).reduce((a,b)=>a+b,0);
     Object.values(deductions).forEach(v=>{ if(v) t -= 10; });
@@ -157,17 +113,11 @@ export default function App(){
   }
 
   async function submit(){
-    if(!entryValid) return alert("Complete all fields");
+    if(!driver) return alert("Enter driver");
 
-    const eventSnap = await getDoc(doc(db,"events",eventId));
-    if(eventSnap.data()?.locked){
-      alert("Event locked 🔒");
-      return;
-    }
+    const id = `${carNumber || carRego}_${driver}_${judge}`;
 
-    const uniqueId = `${carNumber || carRego}_${driver}_${judge}`;
-
-    await setDoc(doc(db,"scores_"+eventId,uniqueId),{
+    await setDoc(doc(db,"scores_"+eventId,id),{
       driver,carNumber,carRego,carClass,gender,
       total: total(),
       deductions: Object.keys(deductions).filter(d=>deductions[d]),
@@ -179,28 +129,14 @@ export default function App(){
     setScores({});
     setDeductions({});
     setTyres({one:false,two:false});
-    setCarClass("");
-    setGender("");
-    setDriver("");
-    setCarNumber("");
-    setCarRego("");
-  }
-
-  async function deleteScore(id){
-    if(!adminLogged) return alert("Admin only");
-
-    const snap = await getDoc(doc(db,"events",eventId));
-    if(snap.data()?.locked){
-      return alert("Event locked 🔒");
-    }
-
-    deleteDoc(doc(db,"scores_"+eventId,id));
+    setDriver(""); setCarNumber(""); setCarRego("");
+    setCarClass(""); setGender("");
   }
 
   function combine(){
     const map = {};
     data.forEach(e=>{
-      const key = (e.carNumber || e.carRego) + "_" + e.driver;
+      const key = (e.carNumber||e.carRego)+"_"+e.driver;
       if(!map[key]) map[key] = {...e,total:0};
       map[key].total += e.total;
     });
@@ -209,32 +145,31 @@ export default function App(){
 
   const combined = combine();
 
-  function format(e){
-    return `${e.driver} / ${e.carNumber || e.carRego} - ${e.total}`;
-  }
-
   // HOME
   if(screen==="home"){
     return (
       <div style={homeWrap}>
         <h1>🔥 AUTOFEST LIVE SYNC 🔥</h1>
-        <button style={menuBtn} onClick={()=>setScreen("eventLogin")}>Event Setup / Join</button>
+        <button style={menuBtn} onClick={()=>setScreen("eventLogin")}>Event and Judge Login</button>
         <button style={menuBtn} onClick={()=>setScreen("judgeSelect")}>Judge Login</button>
         <button style={menuBtn} onClick={()=>setScreen("leaderboard")}>Leaderboard</button>
+        <button style={menuBtn} onClick={()=>setScreen("top150")}>Top 150</button>
+        <button style={menuBtn} onClick={()=>setScreen("top30")}>Top 30</button>
+        <button style={menuBtn} onClick={()=>setScreen("classes")}>Classes</button>
       </div>
     );
   }
 
-  // EVENT LOGIN
+  // EVENT LOGIN FIXED
   if(screen==="eventLogin"){
     return (
       <div style={{padding:20}}>
+        <h2>Setup Event</h2>
+
         <input placeholder="Event Name" value={eventName} onChange={e=>setEventName(e.target.value)} />
 
         {judges.map((j,i)=>(
-          <input key={i} disabled={eventLocked}
-            placeholder={`Judge ${i+1}`}
-            value={judges[i]}
+          <input key={i} placeholder={`Judge ${i+1}`} value={judges[i]}
             onChange={e=>{
               const copy=[...judges];
               copy[i]=e.target.value;
@@ -247,11 +182,10 @@ export default function App(){
           const clean = judges.filter(j=>j.trim()!=="");
           const id = Date.now().toString();
 
-          await setDoc(doc(db,"events",id),{
-            name:eventName,
-            judges:clean,
-            locked:false
-          });
+          await setDoc(doc(db,"events",id),{name:eventName,judges:clean});
+
+          localStorage.setItem("eventId", id);
+          localStorage.setItem("judges", JSON.stringify(clean));
 
           setEventId(id);
           setJudges(clean);
@@ -260,28 +194,21 @@ export default function App(){
           Lock Event
         </button>
 
-        <button onClick={async ()=>{
-          await setDoc(doc(db,"events",eventId),{
-            name:eventName,
-            judges,
-            locked:true
-          });
-          setEventLocked(true);
-          alert("Event Locked 🔒");
-        }}>
-          FINAL LOCK 🔒
-        </button>
-
-        <input placeholder="Event ID" value={joinId} onChange={e=>setJoinId(e.target.value)} />
+        <h3>Join Event</h3>
+        <input value={joinId} onChange={e=>setJoinId(e.target.value)} />
 
         <button onClick={async ()=>{
           const snap = await getDoc(doc(db,"events",joinId));
           if(!snap.exists()) return alert("Event not found");
 
-          const data = snap.data();
+          const d = snap.data();
+
           setEventId(joinId);
-          setJudges(data.judges);
-          setEventLocked(data.locked || false);
+          setJudges(d.judges);
+
+          localStorage.setItem("eventId", joinId);
+          localStorage.setItem("judges", JSON.stringify(d.judges));
+
           setScreen("judgeSelect");
         }}>
           Join Event
@@ -304,14 +231,18 @@ export default function App(){
     );
   }
 
-  // LEADERBOARD
-  if(screen==="leaderboard"){
+  // LEADERBOARDS
+  if(screen==="leaderboard" || screen==="top150" || screen==="top30" || screen==="classes"){
+    let list = combined;
+    if(screen==="top150") list = combined.slice(0,150);
+    if(screen==="top30") list = combined.slice(0,30);
+
     return (
       <div style={{padding:20}}>
-        <h2>LEADERBOARD</h2>
+        <h2>{screen.toUpperCase()}</h2>
 
-        {combined.map((e,i)=>(
-          <div key={i}>#{i+1} {format(e)}</div>
+        {list.map((e,i)=>(
+          <div key={i}>#{i+1} {e.driver} - {e.total}</div>
         ))}
 
         <button onClick={()=>setScreen("score")}>Return to Scoresheet</button>
@@ -325,13 +256,13 @@ export default function App(){
     <div style={scoreWrap}>
       <h2>Judge: {judge}</h2>
 
-      <input style={input} placeholder="Driver Name" value={driver} onChange={e=>setDriver(e.target.value)} />
+      <input style={input} placeholder="Driver" value={driver} onChange={e=>setDriver(e.target.value)} />
 
       {categories.map(cat=>(
         <div key={cat}>
           <strong>{cat}</strong><br/>
           {Array.from({length:21},(_,i)=>(
-            <button key={i} onClick={()=>setScore(cat,i)}>{i}</button>
+            <button key={i} onClick={()=>setScores(p=>({...p,[cat]:i}))}>{i}</button>
           ))}
         </div>
       ))}
@@ -346,8 +277,6 @@ export default function App(){
 
 const homeWrap = {padding:20,textAlign:"center"};
 const menuBtn = {padding:18,margin:8};
-
 const scoreWrap = {background:"#111",color:"#fff",padding:20};
 const input = {width:"95%",padding:14,margin:5};
-
 const submitBtn = {padding:18,margin:10};

@@ -1,114 +1,47 @@
-import React, { useState, useEffect } from "react";
-import { db } from "./firebase";
-import { collection, addDoc, query, where, getDocs } from "firebase/firestore";
+import React, { useState } from "react";
+import ScoreSheet from "./ScoreSheet";
+import Leaderboard from "./Leaderboard";
 
-export default function ScoreSheet({ eventName, judgeName }) {
-  const [carName, setCarName] = useState("");
-  const [carClass, setCarClass] = useState("");
+export default function App() {
+  const [eventName, setEventName] = useState("");
+  const [judgeName, setJudgeName] = useState("");
+  const [started, setStarted] = useState(false);
 
-  const [scores, setScores] = useState({
-    burnout: 0,
-    showmanship: 0,
-    crowd: 0
-  });
+  if (!started) {
+    return (
+      <div style={{ padding: 20 }}>
+        <h1>AutoFest Scoring</h1>
 
-  const [total, setTotal] = useState(0);
+        <input
+          placeholder="Event Name"
+          value={eventName}
+          onChange={(e) => setEventName(e.target.value)}
+        />
 
-  useEffect(() => {
-    const sum =
-      Number(scores.burnout) +
-      Number(scores.showmanship) +
-      Number(scores.crowd);
+        <input
+          placeholder="Judge Name"
+          value={judgeName}
+          onChange={(e) => setJudgeName(e.target.value)}
+        />
 
-    setTotal(sum);
-  }, [scores]);
+        <br /><br />
 
-  const handleSubmit = async () => {
-    if (!carName || !carClass) return;
-
-    // Prevent duplicate judge score for same car
-    const q = query(
-      collection(db, "scores"),
-      where("eventName", "==", eventName),
-      where("carName", "==", carName),
-      where("judgeName", "==", judgeName)
+        <button
+          onClick={() => {
+            if (eventName && judgeName) setStarted(true);
+          }}
+        >
+          Start Judging
+        </button>
+      </div>
     );
-
-    const existing = await getDocs(q);
-
-    if (!existing.empty) {
-      alert("You have already scored this car.");
-      return;
-    }
-
-    await addDoc(collection(db, "scores"), {
-      eventName,
-      judgeName,
-      carName,
-      carClass,
-      scores,
-      total,
-      createdAt: new Date()
-    });
-
-    // reset
-    setCarName("");
-    setCarClass("");
-    setScores({ burnout: 0, showmanship: 0, crowd: 0 });
-  };
+  }
 
   return (
-    <div style={{ marginTop: 20 }}>
-      <h3>Score Car</h3>
-
-      <input
-        placeholder="Car Name / Number"
-        value={carName}
-        onChange={(e) => setCarName(e.target.value)}
-      />
-
-      <input
-        placeholder="Class (Pro / Street etc)"
-        value={carClass}
-        onChange={(e) => setCarClass(e.target.value)}
-      />
-
-      <div>
-        Burnout:
-        <input
-          type="number"
-          value={scores.burnout}
-          onChange={(e) =>
-            setScores({ ...scores, burnout: e.target.value })
-          }
-        />
-      </div>
-
-      <div>
-        Showmanship:
-        <input
-          type="number"
-          value={scores.showmanship}
-          onChange={(e) =>
-            setScores({ ...scores, showmanship: e.target.value })
-          }
-        />
-      </div>
-
-      <div>
-        Crowd:
-        <input
-          type="number"
-          value={scores.crowd}
-          onChange={(e) =>
-            setScores({ ...scores, crowd: e.target.value })
-          }
-        />
-      </div>
-
-      <h4>Total: {total}</h4>
-
-      <button onClick={handleSubmit}>Submit Score</button>
+    <div style={{ padding: 20 }}>
+      <h2>{eventName} - Judge: {judgeName}</h2>
+      <ScoreSheet eventName={eventName} judgeName={judgeName} />
+      <Leaderboard eventName={eventName} />
     </div>
   );
 }

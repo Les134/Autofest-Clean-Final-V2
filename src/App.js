@@ -3,7 +3,7 @@ import { db } from "./firebase";
 import {
   collection,
   addDoc,
-  getDocs,
+  onSnapshot,
   deleteDoc,
   doc
 } from "firebase/firestore";
@@ -50,21 +50,23 @@ export default function App(){
   const [saving,setSaving] = useState(false);
   const [isAdmin,setIsAdmin] = useState(false);
 
-  // LOAD DATA
-  useEffect(()=>{
-    loadEvents();
-    loadScores();
-  },[]);
+  // 🔥 REALTIME SYNC
+  useEffect(() => {
 
-  const loadEvents = async ()=>{
-    const snap = await getDocs(collection(db,"events"));
-    setEvents(snap.docs.map(d=>({id:d.id,...d.data()})));
-  };
+    const unsubEvents = onSnapshot(collection(db, "events"), (snap) => {
+      setEvents(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
 
-  const loadScores = async ()=>{
-    const snap = await getDocs(collection(db,"scores"));
-    setEntries(snap.docs.map(d=>d.data()));
-  };
+    const unsubScores = onSnapshot(collection(db, "scores"), (snap) => {
+      setEntries(snap.docs.map(d => d.data()));
+    });
+
+    return () => {
+      unsubEvents();
+      unsubScores();
+    };
+
+  }, []);
 
   // START EVENT (FIXED)
   const startEvent = async ()=>{
@@ -88,8 +90,6 @@ export default function App(){
         judges: valid,
         createdAt: new Date()
       });
-
-      await loadEvents();
 
       setScreen("judge");
 
@@ -130,8 +130,6 @@ export default function App(){
       createdAt:new Date()
     });
 
-    await loadScores();
-
     // RESET
     setScores({});
     setDeductions({});
@@ -149,10 +147,9 @@ export default function App(){
   const deleteEvent = async (id)=>{
     if(!isAdmin) return alert("Admin only");
     await deleteDoc(doc(db,"events",id));
-    loadEvents();
   };
 
-  // LEADERBOARD PROCESSING
+  // 🔥 LEADERBOARD PROCESSING
   const current = entries.filter(e=>e.eventName===eventName);
 
   const combined = {};
@@ -269,7 +266,6 @@ export default function App(){
     return(
       <div style={{padding:20}}>
         <h2>Select Judge</h2>
-
         {judges.map((j,i)=>(
           <button key={i} style={big}
             onClick={()=>{setActiveJudge(j);setScreen("score")}}>

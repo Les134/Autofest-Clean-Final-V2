@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+iimport React, { useState, useEffect } from "react";
 import { db } from "./firebase";
 import {
   collection,
@@ -13,25 +13,28 @@ export default function ScoreSheet({ eventName, judgeName }) {
   const [carClass, setCarClass] = useState("");
 
   const [scores, setScores] = useState({
-    burnout: 0,
-    showmanship: 0,
-    crowd: 0
+    burnout: "",
+    showmanship: "",
+    crowd: ""
   });
 
   const [total, setTotal] = useState(0);
 
   useEffect(() => {
-    setTotal(
-      Number(scores.burnout) +
-      Number(scores.showmanship) +
-      Number(scores.crowd)
-    );
+    const sum =
+      Number(scores.burnout || 0) +
+      Number(scores.showmanship || 0) +
+      Number(scores.crowd || 0);
+
+    setTotal(sum);
   }, [scores]);
 
   const handleSubmit = async () => {
-    if (!carName || !carClass) return;
+    if (!carName || !carClass) {
+      alert("Enter car and class");
+      return;
+    }
 
-    // 🔒 prevent duplicate scoring per judge/car/event
     const q = query(
       collection(db, "scores"),
       where("eventName", "==", eventName),
@@ -51,15 +54,13 @@ export default function ScoreSheet({ eventName, judgeName }) {
       judgeName,
       carName,
       carClass,
-      scores,
       total,
-      createdAt: new Date()
+      scores
     });
 
-    // reset form
     setCarName("");
     setCarClass("");
-    setScores({ burnout: 0, showmanship: 0, crowd: 0 });
+    setScores({ burnout: "", showmanship: "", crowd: "" });
   };
 
   return (
@@ -67,13 +68,13 @@ export default function ScoreSheet({ eventName, judgeName }) {
       <h3>Score Car</h3>
 
       <input
-        placeholder="Car Name"
+        placeholder="Car Name / Number"
         value={carName}
         onChange={(e) => setCarName(e.target.value)}
       />
 
       <input
-        placeholder="Class"
+        placeholder="Class (Pro / Street)"
         value={carClass}
         onChange={(e) => setCarClass(e.target.value)}
       />

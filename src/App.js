@@ -34,6 +34,7 @@ export default function App(){
   const [activeJudge,setActiveJudge] = useState("");
 
   const [events,setEvents] = useState([]);
+  const [entries,setEntries] = useState([]);
 
   const [car,setCar] = useState("");
   const [name,setName] = useState("");
@@ -49,15 +50,20 @@ export default function App(){
   const [saving,setSaving] = useState(false);
   const [isAdmin,setIsAdmin] = useState(false);
 
-  // LOAD EVENTS
+  // LOAD DATA
   useEffect(()=>{
     loadEvents();
+    loadScores();
   },[]);
 
   const loadEvents = async ()=>{
     const snap = await getDocs(collection(db,"events"));
-    const list = snap.docs.map(d=>({id:d.id,...d.data()}));
-    setEvents(list);
+    setEvents(snap.docs.map(d=>({id:d.id,...d.data()})));
+  };
+
+  const loadScores = async ()=>{
+    const snap = await getDocs(collection(db,"scores"));
+    setEntries(snap.docs.map(d=>d.data()));
   };
 
   // CREATE EVENT
@@ -88,9 +94,11 @@ export default function App(){
 
     const base = Object.values(scores).reduce((a,b)=>a+b,0);
     const tyreScore = (tyres.left?5:0)+(tyres.right?5:0);
-    const deductionTotal = Object.values(deductions).filter(v=>v).length*10;
 
-    const finalScore = base + tyreScore - deductionTotal;
+    const activeDeductions = Object.keys(deductions).filter(d => deductions[d]);
+    const deductionTotal = activeDeductions.length * 10;
+
+    const total = base + tyreScore - deductionTotal;
 
     await addDoc(collection(db,"scores"),{
       eventName,
@@ -100,10 +108,14 @@ export default function App(){
       gender,
       carClass,
       judge:activeJudge,
-      finalScore,
+      total,
+      deductions:activeDeductions,
       createdAt:new Date()
     });
 
+    loadScores();
+
+    // RESET
     setScores({});
     setDeductions({});
     setTyres({left:false,right:false});
@@ -116,19 +128,64 @@ export default function App(){
     setSaving(false);
   };
 
+  // DELETE EVENT
   const deleteEvent = async (id)=>{
     if(!isAdmin) return alert("Admin only");
-
     await deleteDoc(doc(db,"events",id));
     loadEvents();
   };
 
+  // PROCESS LEADERBOARD
+  const current = entries.filter(e=>e.eventName===eventName);
+
+  const combined = {};
+  current.forEach(e=>{
+    const key = e.car || e.name || e.rego;
+
+    if(!combined[key]){
+      combined[key] = {
+        car:key,
+        carClass:e.carClass,
+        gender:e.gender,
+        total:0,
+        deductions:new Set()
+      };
+    }
+
+    combined[key].total += e.total;
+    e.deductions?.forEach(d=>combined[key].deductions.add(d));
+  });
+
+  const list = Object.values(combined)
+    .map(e=>({...e, deductions:[...e.deductions]}))
+    .sort((a,b)=>b.total-a.total);
+
+  const top150 = list.slice(0,150);
+  const top30 = list.slice(0,30);
+
+  const grouped = {};
+  list.forEach(e=>{
+    if(!grouped[e.carClass]) grouped[e.carClass]=[];
+    grouped[e.carClass].push(e);
+  });
+
+  const female = list.filter(e=>e.gender==="Female");
+
   const big={padding:18,margin:10,width:"100%",fontSize:18};
-  const btn={padding:12,margin:5,border:"1px solid #ccc"};
+  const btn={padding:10,margin:5,border:"1px solid #ccc"};
   const active={...btn,background:"red",color:"#fff"};
   const classActive={...btn,background:"green",color:"#fff"};
 
-  // HOME
+  const renderList = (list)=>list.map((e,i)=>(
+    <div key={i}>
+      #{i+1} | {e.car} | {e.carClass} | Score - 
+      {e.deductions.length>0 && <>({e.deductions.join(", ")}) </>}
+      {e.total}
+    </div>
+  ));
+
+  // SCREENS
+
   if(screen==="home"){
     return(
       <div style={{padding:20}}>
@@ -138,18 +195,21 @@ export default function App(){
         <button style={big} onClick={()=>setScreen("judge")}>Judge Login</button>
         <button style={big} onClick={()=>setScreen("score")}>Resume Scoring</button>
 
+        <button style={big} onClick={()=>setScreen("leader")}>Leaderboard</button>
+        <button style={big} onClick={()=>setScreen("top150")}>Top 150</button>
+        <button style={big} onClick={()=>setScreen("top30")}>Top 30 Finals</button>
+        <button style={big} onClick={()=>setScreen("class")}>Class Leaders</button>
+        <button style={big} onClick={()=>setScreen("female")}>Female Class</button>
+
         <button style={big} onClick={()=>setScreen("archive")}>Event Archive</button>
         <button style={big} onClick={()=>setScreen("admin")}>Admin Login</button>
       </div>
     );
   }
 
-  // ADMIN
   if(screen==="admin"){
     return(
       <div style={{padding:20}}>
-        <h2>Admin Login</h2>
-
         <input type="password" placeholder="Password"
           onChange={(e)=>{
             if(e.target.value==="autofest123"){
@@ -158,23 +218,18 @@ export default function App(){
             }
           }}
         />
-
         <button style={big} onClick={()=>setScreen("home")}>Back</button>
       </div>
     );
   }
 
-  // SETUP
   if(screen==="setup"){
     return(
       <div style={{padding:20}}>
-        <h2>Event Setup</h2>
-
         <input placeholder="Event Name" onChange={(e)=>setEventName(e.target.value)} />
 
         {judges.map((j,i)=>(
-          <input key={i}
-            placeholder={`Judge ${i+1}`}
+          <input key={i} placeholder={`Judge ${i+1}`}
             onChange={(e)=>{
               const copy=[...judges];
               copy[i]=e.target.value;
@@ -188,25 +243,19 @@ export default function App(){
     );
   }
 
-  // JUDGE
   if(screen==="judge"){
     return(
       <div style={{padding:20}}>
-        <h2>Select Judge</h2>
-
         {judges.map((j,i)=>(
           <button key={i} style={big}
             onClick={()=>{setActiveJudge(j);setScreen("score")}}>
             {j}
           </button>
         ))}
-
-        <button style={big} onClick={()=>setScreen("home")}>Home</button>
       </div>
     );
   }
 
-  // SCORE
   if(screen==="score"){
     return(
       <div style={{padding:20}}>
@@ -251,22 +300,36 @@ export default function App(){
     );
   }
 
-  // ARCHIVE
+  if(screen==="leader") return <div style={{padding:20}}><h2>Leaderboard</h2>{renderList(list)}</div>;
+  if(screen==="top150") return <div style={{padding:20}}><h2>Top 150</h2>{renderList(top150)}</div>;
+  if(screen==="top30") return <div style={{padding:20}}><h2>Top 30 Finals</h2>{renderList(top30)}</div>;
+
+  if(screen==="class"){
+    return(
+      <div style={{padding:20}}>
+        <h2>Class Leaders</h2>
+        {Object.keys(grouped).map(k=>(
+          <div key={k}>
+            <h3>{k}</h3>
+            {renderList(grouped[k])}
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if(screen==="female") return <div style={{padding:20}}><h2>Female Class</h2>{renderList(female)}</div>;
+
   if(screen==="archive"){
     return(
       <div style={{padding:20}}>
         <h2>Event Archive</h2>
-
         {events.map(ev=>(
           <div key={ev.id}>
             {ev.name}
-            {isAdmin && (
-              <button onClick={()=>deleteEvent(ev.id)}>Delete</button>
-            )}
+            {isAdmin && <button onClick={()=>deleteEvent(ev.id)}>Delete</button>}
           </div>
         ))}
-
-        <button style={big} onClick={()=>setScreen("home")}>Home</button>
       </div>
     );
   }

@@ -3,9 +3,7 @@ import { db } from "./firebase";
 import {
   collection,
   addDoc,
-  onSnapshot,
-  deleteDoc,
-  doc
+  onSnapshot
 } from "firebase/firestore";
 
 const categories = [
@@ -23,13 +21,13 @@ const classes = [
   "4Cyl Open/Rotary"
 ];
 
-const deductionsList = ["Reversing","Stopping","Barrier","Fire"];
-
 export default function App(){
 
   const [screen,setScreen] = useState("home");
 
   const [eventName,setEventName] = useState("");
+  const [selectedEvent,setSelectedEvent] = useState(null);
+
   const [judges,setJudges] = useState(["","","","","",""]);
   const [activeJudge,setActiveJudge] = useState("");
 
@@ -39,79 +37,120 @@ export default function App(){
   const [car,setCar] = useState("");
   const [name,setName] = useState("");
   const [rego,setRego] = useState("");
-  const [gender,setGender] = useState("");
   const [carClass,setCarClass] = useState("");
   const [scores,setScores] = useState({});
-  const [deductions,setDeductions] = useState({});
-  const [tyres,setTyres] = useState({left:false,right:false});
 
   const [saving,setSaving] = useState(false);
-  const [isAdmin,setIsAdmin] = useState(false);
 
+  // ================= FIREBASE =================
   useEffect(() => {
+
     const unsubEvents = onSnapshot(collection(db,"events"), snap=>{
       setEvents(snap.docs.map(d=>({id:d.id,...d.data()})));
     });
 
     const unsubScores = onSnapshot(collection(db,"scores"), snap=>{
-      setEntries(snap.docs.map(d=>d.data()));
+      const data = snap.docs.map(d=>d.data());
+
+      setEntries(
+        data.filter(e => e.eventName === eventName)
+      );
     });
 
     return ()=>{unsubEvents();unsubScores();};
-  },[]);
 
+  },[eventName]);
+
+  // ================= START EVENT =================
   const startEvent = async ()=>{
+
     const valid = judges.filter(j=>j.trim() !== "");
 
     if(!eventName) return alert("Enter event name");
     if(valid.length === 0) return alert("Add at least 1 judge");
 
-    setJudges(valid);
-
     await addDoc(collection(db,"events"),{
       name:eventName,
       judges:valid,
-      createdAt:new Date()
+      createdAt:new Date(),
+      locked:false
     });
 
+    setJudges(valid);
+    setSelectedEvent({name:eventName, judges:valid});
     setScreen("judge");
   };
 
+  // ================= SUBMIT SCORE =================
   const submit = async ()=>{
+
     if(saving) return;
-    if(!car && !name && !rego) return alert("Enter Car #, Name or Rego");
+    if(!car) return alert("Enter Car #");
+
+    const alreadyScored = entries.find(e =>
+      e.car === car &&
+      e.judge === activeJudge &&
+      e.eventName === eventName
+    );
+
+    if(alreadyScored){
+      return alert("You already scored this car");
+    }
 
     setSaving(true);
 
-    const base = Object.values(scores).reduce((a,b)=>a+b,0);
-    const tyreScore = (tyres.left?5:0)+(tyres.right?5:0);
-    const activeDeductions = Object.keys(deductions).filter(d=>deductions[d]);
-    const deductionTotal = activeDeductions.length*10;
-
-    const total = base + tyreScore - deductionTotal;
+    const total = Object.values(scores).reduce((a,b)=>a+b,0);
 
     await addDoc(collection(db,"scores"),{
       eventName,
       car,
       name,
       rego,
-      gender,
       carClass,
       judge:activeJudge,
       total,
-      deductions:activeDeductions,
       createdAt:new Date()
     });
 
     setScores({});
-    setDeductions({});
-    setTyres({left:false,right:false});
-    setCar(""); setName(""); setRego("");
-    setGender(""); setCarClass("");
+    setCar("");
+    setName("");
+    setRego("");
+    setCarClass("");
 
     setSaving(false);
   };
 
+  // ================= LEADERBOARD LOGIC =================
+  const grouped = {};
+
+  entries.forEach(e=>{
+    const key = e.car + "_" + e.carClass;
+
+    if(!grouped[key]){
+      grouped[key] = {
+        car: e.car,
+        carClass: e.carClass,
+        total: 0
+      };
+    }
+
+    grouped[key].total += e.total;
+  });
+
+  const leaderboard = Object.values(grouped)
+    .sort((a,b)=>b.total - a.total);
+
+  const classGroups = {};
+
+  leaderboard.forEach(e=>{
+    if(!classGroups[e.carClass]){
+      classGroups[e.carClass] = [];
+    }
+    classGroups[e.carClass].push(e);
+  });
+
+  // ================= STYLES =================
   const big={padding:18,margin:10,width:"100%"};
   const btn={padding:10,margin:5};
   const active={...btn,background:"red",color:"#fff"};
@@ -124,7 +163,7 @@ export default function App(){
         <h1>🔥 AUTOFEST LIVE SYNC 🔥</h1>
 
         <button style={big} onClick={()=>setScreen("setup")}>Start Event</button>
-        <button style={big} onClick={()=>setScreen("judge")}>Judge Login</button>
+        <button style={big} onClick={()=>setScreen("eventSelect")}>Judge Login</button>
         <button style={big} onClick={()=>setScreen("leader")}>Leaderboard</button>
       </div>
     );
@@ -160,6 +199,29 @@ export default function App(){
     );
   }
 
+  // ================= EVENT SELECT =================
+  if(screen==="eventSelect"){
+    return(
+      <div style={{padding:20}}>
+        <h2>Select Event</h2>
+
+        {events.map(e=>(
+          <button key={e.id} style={big}
+            onClick={()=>{
+              setSelectedEvent(e);
+              setJudges(e.judges);
+              setEventName(e.name);
+              setScreen("judge");
+            }}>
+            {e.name}
+          </button>
+        ))}
+
+        <button style={big} onClick={()=>setScreen("home")}>Back</button>
+      </div>
+    );
+  }
+
   // ================= JUDGE =================
   if(screen==="judge"){
     return(
@@ -173,7 +235,7 @@ export default function App(){
           </button>
         ))}
 
-        <button style={big} onClick={()=>setScreen("home")}>Back</button>
+        <button style={big} onClick={()=>setScreen("home")}>Home</button>
       </div>
     );
   }
@@ -187,11 +249,6 @@ export default function App(){
         <input placeholder="Car #" value={car} onChange={(e)=>setCar(e.target.value)} />
         <input placeholder="Name" value={name} onChange={(e)=>setName(e.target.value)} />
         <input placeholder="Rego" value={rego} onChange={(e)=>setRego(e.target.value)} />
-
-        <div>
-          <button style={gender==="Male"?active:btn} onClick={()=>setGender("Male")}>Male</button>
-          <button style={gender==="Female"?active:btn} onClick={()=>setGender("Female")}>Female</button>
-        </div>
 
         <div>
           {classes.map(c=>(
@@ -217,7 +274,7 @@ export default function App(){
         ))}
 
         <button style={big} onClick={submit}>
-          {saving ? "Saving..." : "Submit & Next"}
+          {saving ? "Saving..." : "Submit Score"}
         </button>
 
         <button style={big} onClick={()=>setScreen("judge")}>Next Judge</button>
@@ -226,21 +283,24 @@ export default function App(){
     );
   }
 
-  // ================= LEADER =================
+  // ================= LEADERBOARD =================
   if(screen==="leader"){
     return(
       <div style={{padding:20}}>
         <h2>Leaderboard</h2>
-        {entries.map((e,i)=>(
-          <div key={i}>
-            {e.car} | {e.carClass} | {e.total}
+
+        {Object.keys(classGroups).map(cls=>(
+          <div key={cls}>
+            <h3>{cls}</h3>
+
+            {classGroups[cls].map((e,i)=>(
+              <div key={i}>
+                #{i+1} | Car: {e.car} | Score: {e.total}
+              </div>
+            ))}
           </div>
         ))}
+
         <button style={big} onClick={()=>setScreen("home")}>Back</button>
       </div>
     );
-  }
-
-  return <div>Loading...</div>;
-}
-

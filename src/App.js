@@ -283,7 +283,7 @@ export default function App(){
     );
   }
 
-  // ================= LEADERBOARD =================
+    // ================= LEADERBOARD =================
   if(screen==="leader"){
     return(
       <div style={{padding:20}}>
@@ -304,3 +304,7 @@ export default function App(){
         <button style={big} onClick={()=>setScreen("home")}>Back</button>
       </div>
     );
+  }
+
+  return <div>Loading...</div>;
+}

@@ -9,26 +9,25 @@ export default function App() {
 
   if (!started) {
     return (
-      <div style={{ padding: 20 }}>
-        <h1>AutoFest Scoring</h1>
+      <div style={{ padding: 20, maxWidth: 400, margin: "auto" }}>
+        <h1 style={{ textAlign: "center" }}>🔥 AUTOFEST SCORING 🔥</h1>
 
-        <div style={{ marginBottom: 10 }}>
-          <input
-            placeholder="Event Name"
-            value={eventName}
-            onChange={(e) => setEventName(e.target.value)}
-          />
-        </div>
+        <input
+          style={{ width: "100%", marginBottom: 10 }}
+          placeholder="Event Name"
+          value={eventName}
+          onChange={(e) => setEventName(e.target.value)}
+        />
 
-        <div style={{ marginBottom: 20 }}>
-          <input
-            placeholder="Judge Name"
-            value={judgeName}
-            onChange={(e) => setJudgeName(e.target.value)}
-          />
-        </div>
+        <input
+          style={{ width: "100%", marginBottom: 20 }}
+          placeholder="Judge Name"
+          value={judgeName}
+          onChange={(e) => setJudgeName(e.target.value)}
+        />
 
         <button
+          style={{ width: "100%", padding: 10 }}
           onClick={() => {
             if (!eventName || !judgeName) {
               alert("Enter event and judge name");

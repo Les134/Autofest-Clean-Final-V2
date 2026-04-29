@@ -25,7 +25,7 @@ export default function App(){
   const [judges,setJudges] = useState(["","","","","",""]);
   const [activeJudge,setActiveJudge] = useState("");
 
-  const [entries,setEntries] = useState([]);
+  const [events,setEvents] = useState({}); // 🔥 all events stored here
 
   const [car,setCar] = useState("");
   const [name,setName] = useState("");
@@ -39,6 +39,7 @@ export default function App(){
   const [tyres,setTyres] = useState({left:false,right:false});
 
   const [saving,setSaving] = useState(false);
+  const [isAdmin,setIsAdmin] = useState(false);
 
   const startEvent = ()=>{
     const valid = judges.filter(j=>j.trim() !== "");
@@ -46,6 +47,15 @@ export default function App(){
     if(valid.length === 0) return alert("Add at least 1 judge");
 
     setJudges(valid);
+
+    setEvents(prev => ({
+      ...prev,
+      [eventName]: {
+        entries: [],
+        locked: false
+      }
+    }));
+
     setScreen("judge");
   };
 
@@ -73,9 +83,14 @@ export default function App(){
       finalScore
     };
 
-    setEntries(prev => [...prev, entry]);
+    setEvents(prev => ({
+      ...prev,
+      [eventName]: {
+        ...prev[eventName],
+        entries: [...(prev[eventName]?.entries || []), entry]
+      }
+    }));
 
-    // RESET
     setScores({});
     setDeductions({});
     setTyres({left:false,right:false});
@@ -88,13 +103,30 @@ export default function App(){
     setSaving(false);
   };
 
-  const sorted = [...entries].sort((a,b)=>b.finalScore-a.finalScore);
+  const currentEntries = events[eventName]?.entries || [];
+
+  const sorted = [...currentEntries].sort((a,b)=>b.finalScore-a.finalScore);
+  const top150 = sorted.slice(0,150);
+  const top30 = sorted.slice(0,30);
+
+  const grouped = {};
+  sorted.forEach(e=>{
+    if(!grouped[e.carClass]) grouped[e.carClass]=[];
+    grouped[e.carClass].push(e);
+  });
 
   const big={padding:18,margin:10,width:"100%",fontSize:18};
   const btn={padding:12,margin:5,border:"1px solid #ccc"};
   const active={...btn,background:"red",color:"#fff"};
   const classActive={...btn,background:"green",color:"#fff"};
 
+  const renderList = (list)=>list.map((e,i)=>(
+    <div key={i}>
+      #{i+1} | {e.car || e.name || e.rego} | {e.finalScore}
+    </div>
+  ));
+
+  // HOME
   if(screen==="home"){
     return(
       <div style={{padding:20}}>
@@ -103,11 +135,39 @@ export default function App(){
         <button style={big} onClick={()=>setScreen("setup")}>New Event</button>
         <button style={big} onClick={()=>setScreen("judge")}>Judge Login</button>
         <button style={big} onClick={()=>setScreen("score")}>Resume Scoring</button>
+
         <button style={big} onClick={()=>setScreen("leader")}>Leaderboard</button>
+        <button style={big} onClick={()=>setScreen("top150")}>Top 150</button>
+        <button style={big} onClick={()=>setScreen("top30")}>Top 30 Finals</button>
+        <button style={big} onClick={()=>setScreen("class")}>Class Leaders</button>
+
+        <button style={big} onClick={()=>setScreen("archive")}>Event Archive</button>
+        <button style={big} onClick={()=>setScreen("admin")}>Admin Login</button>
       </div>
     );
   }
 
+  // ADMIN
+  if(screen==="admin"){
+    return(
+      <div style={{padding:20}}>
+        <h2>Admin Login</h2>
+
+        <input type="password" placeholder="Password"
+          onChange={(e)=>{
+            if(e.target.value==="autofest123"){
+              setIsAdmin(true);
+              alert("Admin logged in");
+            }
+          }}
+        />
+
+        <button style={big} onClick={()=>setScreen("home")}>Back</button>
+      </div>
+    );
+  }
+
+  // SETUP
   if(screen==="setup"){
     return(
       <div style={{padding:20}}>
@@ -131,6 +191,7 @@ export default function App(){
     );
   }
 
+  // JUDGE
   if(screen==="judge"){
     return(
       <div style={{padding:20}}>
@@ -148,26 +209,22 @@ export default function App(){
     );
   }
 
+  // SCORE
   if(screen==="score"){
     return(
       <div style={{padding:20}}>
         <h3>{eventName} | {activeJudge}</h3>
 
-        {/* CAR DETAILS */}
         <input placeholder="Car #" value={car} onChange={(e)=>setCar(e.target.value)} />
         <input placeholder="Name" value={name} onChange={(e)=>setName(e.target.value)} />
         <input placeholder="Rego" value={rego} onChange={(e)=>setRego(e.target.value)} />
 
-        {/* GENDER */}
-        <div style={{marginTop:20}}>
-          <strong>Gender</strong><br/>
+        <div>
           <button style={gender==="Male"?active:btn} onClick={()=>setGender("Male")}>Male</button>
           <button style={gender==="Female"?active:btn} onClick={()=>setGender("Female")}>Female</button>
         </div>
 
-        {/* CLASS */}
-        <div style={{marginTop:20}}>
-          <strong>Class</strong><br/>
+        <div>
           {classes.map(c=>(
             <button key={c}
               style={carClass===c?classActive:btn}
@@ -177,9 +234,8 @@ export default function App(){
           ))}
         </div>
 
-        {/* SCORING */}
         {categories.map(cat=>(
-          <div key={cat} style={{marginTop:20}}>
+          <div key={cat}>
             <strong>{cat}</strong><br/>
             {Array.from({length:21},(_,i)=>(
               <button key={i}
@@ -191,16 +247,12 @@ export default function App(){
           </div>
         ))}
 
-        {/* TYRES */}
-        <div style={{marginTop:20}}>
-          <strong>Tyres Blown (+5)</strong><br/>
-          <button style={tyres.left?active:btn} onClick={()=>setTyres({...tyres,left:!tyres.left})}>Left</button>
-          <button style={tyres.right?active:btn} onClick={()=>setTyres({...tyres,right:!tyres.right})}>Right</button>
+        <div>
+          <button style={tyres.left?active:btn} onClick={()=>setTyres({...tyres,left:!tyres.left})}>Left Tyre</button>
+          <button style={tyres.right?active:btn} onClick={()=>setTyres({...tyres,right:!tyres.right})}>Right Tyre</button>
         </div>
 
-        {/* DEDUCTIONS */}
-        <div style={{marginTop:20}}>
-          <strong>Deductions (-10)</strong><br/>
+        <div>
           {deductionsList.map(d=>(
             <button key={d}
               style={deductions[d]?active:btn}
@@ -219,15 +271,45 @@ export default function App(){
     );
   }
 
-  if(screen==="leader"){
+  // LEADER
+  if(screen==="leader") return <div style={{padding:20}}><h2>Leaderboard</h2>{renderList(sorted)}</div>;
+  if(screen==="top150") return <div style={{padding:20}}><h2>Top 150</h2>{renderList(top150)}</div>;
+  if(screen==="top30") return <div style={{padding:20}}><h2>Top 30 Finals</h2>{renderList(top30)}</div>;
+
+  if(screen==="class"){
     return(
       <div style={{padding:20}}>
-        <h2>Leaderboard</h2>
-        {sorted.map((e,i)=>(
-          <div key={i}>
-            #{i+1} | {e.car || e.name || e.rego} | {e.finalScore}
+        <h2>Class Leaders</h2>
+        {Object.keys(grouped).map(k=>(
+          <div key={k}>
+            <h3>{k}</h3>
+            {renderList(grouped[k])}
           </div>
         ))}
+      </div>
+    );
+  }
+
+  if(screen==="archive"){
+    return(
+      <div style={{padding:20}}>
+        <h2>Event Archive</h2>
+
+        {Object.keys(events).map(ev=>(
+          <div key={ev}>
+            {ev}
+            {isAdmin && (
+              <button onClick={()=>{
+                const copy={...events};
+                delete copy[ev];
+                setEvents(copy);
+              }}>
+                Delete
+              </button>
+            )}
+          </div>
+        ))}
+
         <button style={big} onClick={()=>setScreen("home")}>Home</button>
       </div>
     );

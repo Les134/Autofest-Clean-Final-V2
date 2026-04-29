@@ -12,23 +12,29 @@ export default function App() {
       <div style={{ padding: 20 }}>
         <h1>AutoFest Scoring</h1>
 
-        <input
-          placeholder="Event Name"
-          value={eventName}
-          onChange={(e) => setEventName(e.target.value)}
-        />
+        <div style={{ marginBottom: 10 }}>
+          <input
+            placeholder="Event Name"
+            value={eventName}
+            onChange={(e) => setEventName(e.target.value)}
+          />
+        </div>
 
-        <input
-          placeholder="Judge Name"
-          value={judgeName}
-          onChange={(e) => setJudgeName(e.target.value)}
-        />
-
-        <br /><br />
+        <div style={{ marginBottom: 20 }}>
+          <input
+            placeholder="Judge Name"
+            value={judgeName}
+            onChange={(e) => setJudgeName(e.target.value)}
+          />
+        </div>
 
         <button
           onClick={() => {
-            if (eventName && judgeName) setStarted(true);
+            if (!eventName || !judgeName) {
+              alert("Enter event and judge name");
+              return;
+            }
+            setStarted(true);
           }}
         >
           Start Judging
@@ -39,7 +45,8 @@ export default function App() {
 
   return (
     <div style={{ padding: 20 }}>
-      <h2>{eventName} - Judge: {judgeName}</h2>
+      <h2>{eventName} — Judge: {judgeName}</h2>
+
       <ScoreSheet eventName={eventName} judgeName={judgeName} />
       <Leaderboard eventName={eventName} />
     </div>

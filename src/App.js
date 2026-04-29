@@ -27,19 +27,15 @@ const deductionsList = ["Reversing","Stopping","Barrier","Fire"];
 
 export default function App(){
 
-  // NAV
   const [screen,setScreen] = useState("home");
 
-  // EVENT / JUDGES
   const [eventName,setEventName] = useState("");
   const [judges,setJudges] = useState(["","","","","",""]);
   const [activeJudge,setActiveJudge] = useState("");
 
-  // DATA
   const [events,setEvents] = useState([]);
   const [entries,setEntries] = useState([]);
 
-  // SCORE INPUTS
   const [car,setCar] = useState("");
   const [name,setName] = useState("");
   const [rego,setRego] = useState("");
@@ -52,9 +48,7 @@ export default function App(){
   const [saving,setSaving] = useState(false);
   const [isAdmin,setIsAdmin] = useState(false);
 
-  // 🔥 REALTIME DATA
   useEffect(() => {
-
     const unsubEvents = onSnapshot(collection(db,"events"), snap=>{
       setEvents(snap.docs.map(d=>({id:d.id,...d.data()})));
     });
@@ -64,34 +58,25 @@ export default function App(){
     });
 
     return ()=>{unsubEvents();unsubScores();};
-
   },[]);
 
-  // START EVENT (FIXED)
   const startEvent = async ()=>{
     const valid = judges.filter(j=>j.trim() !== "");
 
     if(!eventName) return alert("Enter event name");
     if(valid.length === 0) return alert("Add at least 1 judge");
 
-    try{
-      setJudges(valid);
+    setJudges(valid);
 
-      await addDoc(collection(db,"events"),{
-        name:eventName,
-        judges:valid,
-        createdAt:new Date()
-      });
+    await addDoc(collection(db,"events"),{
+      name:eventName,
+      judges:valid,
+      createdAt:new Date()
+    });
 
-      setScreen("judge");
-
-    }catch(err){
-      console.error(err);
-      alert("Error starting event");
-    }
+    setScreen("judge");
   };
 
-  // SUBMIT SCORE
   const submit = async ()=>{
     if(saving) return;
     if(!car && !name && !rego) return alert("Enter Car #, Name or Rego");
@@ -118,120 +103,34 @@ export default function App(){
       createdAt:new Date()
     });
 
-    // RESET FORM
     setScores({});
     setDeductions({});
     setTyres({left:false,right:false});
-    setCar("");
-    setName("");
-    setRego("");
-    setGender("");
-    setCarClass("");
+    setCar(""); setName(""); setRego("");
+    setGender(""); setCarClass("");
 
     setSaving(false);
   };
 
-  // DELETE EVENT
-  const deleteEvent = async (id)=>{
-    if(!isAdmin) return alert("Admin only");
-    await deleteDoc(doc(db,"events",id));
-  };
-
-  // 🔥 LEADERBOARD BUILD
-  const current = entries.filter(e=>e.eventName===eventName);
-
-  const combined = {};
-  current.forEach(e=>{
-    const key = e.car || e.name || e.rego;
-
-    if(!combined[key]){
-      combined[key] = {
-        car:key,
-        carClass:e.carClass,
-        gender:e.gender,
-        total:0,
-        deductions:new Set()
-      };
-    }
-
-    combined[key].total += e.total;
-    e.deductions?.forEach(d=>combined[key].deductions.add(d));
-  });
-
-  const list = Object.values(combined)
-    .map(e=>({...e,deductions:[...e.deductions]}))
-    .sort((a,b)=>b.total-a.total);
-
-  const top150 = list.slice(0,150);
-  const top30 = list.slice(0,30);
-
-  const grouped = {};
-  list.forEach(e=>{
-    if(!grouped[e.carClass]) grouped[e.carClass]=[];
-    grouped[e.carClass].push(e);
-  });
-
-  const female = list.filter(e=>e.gender==="Female");
-
-  const big={padding:18,margin:10,width:"100%",fontSize:18};
+  const big={padding:18,margin:10,width:"100%"};
   const btn={padding:10,margin:5};
   const active={...btn,background:"red",color:"#fff"};
   const classActive={...btn,background:"green",color:"#fff"};
 
-  const renderList = (arr)=>arr.map((e,i)=>(
-    <div key={i}>
-      #{i+1} | {e.car} | {e.carClass} | Score - 
-      {e.deductions.length>0 && <>({e.deductions.join(", ")}) </>}
-      {e.total}
-    </div>
-  ));
-
-  // =========================
-  // HOME
-  // =========================
+  // ================= HOME =================
   if(screen==="home"){
     return(
       <div style={{padding:20}}>
         <h1>🔥 AUTOFEST LIVE SYNC 🔥</h1>
 
-        <button style={big} onClick={()=>setScreen("setup")}>New Event</button>
+        <button style={big} onClick={()=>setScreen("setup")}>Start Event</button>
         <button style={big} onClick={()=>setScreen("judge")}>Judge Login</button>
-        <button style={big} onClick={()=>setScreen("score")}>Resume Scoring</button>
-
         <button style={big} onClick={()=>setScreen("leader")}>Leaderboard</button>
-        <button style={big} onClick={()=>setScreen("top150")}>Top 150</button>
-        <button style={big} onClick={()=>setScreen("top30")}>Top 30 Finals</button>
-        <button style={big} onClick={()=>setScreen("class")}>Class Leaders</button>
-        <button style={big} onClick={()=>setScreen("female")}>Female Class</button>
-
-        <button style={big} onClick={()=>setScreen("archive")}>Event Archive</button>
-        <button style={big} onClick={()=>setScreen("admin")}>Admin Login</button>
       </div>
     );
   }
 
-  // =========================
-  // ADMIN
-  // =========================
-  if(screen==="admin"){
-    return(
-      <div style={{padding:20}}>
-        <input type="password" placeholder="Password"
-          onChange={(e)=>{
-            if(e.target.value==="autofest123"){
-              setIsAdmin(true);
-              alert("Admin logged in");
-            }
-          }}
-        />
-        <button style={big} onClick={()=>setScreen("home")}>Back</button>
-      </div>
-    );
-  }
-
-  // =========================
-  // SETUP
-  // =========================
+  // ================= SETUP =================
   if(screen==="setup"){
     return(
       <div style={{padding:20}}>
@@ -256,13 +155,12 @@ export default function App(){
         ))}
 
         <button style={big} onClick={startEvent}>Start Event</button>
+        <button style={big} onClick={()=>setScreen("home")}>Back</button>
       </div>
     );
   }
 
-  // =========================
-  // JUDGE SELECT
-  // =========================
+  // ================= JUDGE =================
   if(screen==="judge"){
     return(
       <div style={{padding:20}}>
@@ -274,13 +172,13 @@ export default function App(){
             {j}
           </button>
         ))}
+
+        <button style={big} onClick={()=>setScreen("home")}>Back</button>
       </div>
     );
   }
 
-  // =========================
-  // SCORE SHEET (RESTORED)
-  // =========================
+  // ================= SCORE =================
   if(screen==="score"){
     return(
       <div style={{padding:20}}>
@@ -318,62 +216,31 @@ export default function App(){
           </div>
         ))}
 
-        <div>
-          <button style={tyres.left?active:btn} onClick={()=>setTyres({...tyres,left:!tyres.left})}>Left Tyre</button>
-          <button style={tyres.right?active:btn} onClick={()=>setTyres({...tyres,right:!tyres.right})}>Right Tyre</button>
-        </div>
-
-        <div>
-          {deductionsList.map(d=>(
-            <button key={d}
-              style={deductions[d]?active:btn}
-              onClick={()=>setDeductions({...deductions,[d]:!deductions[d]})}>
-              {d}
-            </button>
-          ))}
-        </div>
-
         <button style={big} onClick={submit}>
           {saving ? "Saving..." : "Submit & Next"}
         </button>
+
+        <button style={big} onClick={()=>setScreen("judge")}>Next Judge</button>
+        <button style={big} onClick={()=>setScreen("home")}>Home</button>
       </div>
     );
   }
 
-  if(screen==="leader") return <div style={{padding:20}}><h2>Leaderboard</h2>{renderList(list)}</div>;
-  if(screen==="top150") return <div style={{padding:20}}><h2>Top 150</h2>{renderList(top150)}</div>;
-  if(screen==="top30") return <div style={{padding:20}}><h2>Top 30 Finals</h2>{renderList(top30)}</div>;
-
-  if(screen==="class"){
+  // ================= LEADER =================
+  if(screen==="leader"){
     return(
       <div style={{padding:20}}>
-        <h2>Class Leaders</h2>
-        {Object.keys(grouped).map(k=>(
-          <div key={k}>
-            <h3>{k}</h3>
-            {renderList(grouped[k])}
+        <h2>Leaderboard</h2>
+        {entries.map((e,i)=>(
+          <div key={i}>
+            {e.car} | {e.carClass} | {e.total}
           </div>
         ))}
-      </div>
-    );
-  }
-
-  if(screen==="female") return <div style={{padding:20}}><h2>Female Class</h2>{renderList(female)}</div>;
-
-  if(screen==="archive"){
-    return(
-      <div style={{padding:20}}>
-        <h2>Event Archive</h2>
-        {events.map(ev=>(
-          <div key={ev.id}>
-            {ev.name}
-            {isAdmin && <button onClick={()=>deleteEvent(ev.id)}>Delete</button>}
-          </div>
-        ))}
+        <button style={big} onClick={()=>setScreen("home")}>Back</button>
       </div>
     );
   }
 
   return <div>Loading...</div>;
 }
-// test deploy working
+

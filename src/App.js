@@ -86,7 +86,17 @@ export default function App(){
   const top150 = sorted.slice(0,150);
   const top30 = top150.slice(0,30);
   const female = sorted.filter(e=>e.gender==="Female");
+  useEffect(() => {
+  if (!eventName) return;
 
+  const unsub = onSnapshot(doc(db, "events", eventName), (docSnap) => {
+    if (docSnap.exists()) {
+      setEventLocked(docSnap.data().locked);
+    }
+  });
+
+  return () => unsub();
+}, [eventName]);
   const grouped = {};
   sorted.forEach(e=>{
     if(!grouped[e.carClass]) grouped[e.carClass]=[];

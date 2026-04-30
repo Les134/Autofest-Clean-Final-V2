@@ -42,7 +42,9 @@ export default function ScoreSheet({ eventName, judgeName }) {
     if (!carName.trim()) return alert("Enter car number / rego");
     if (!carClass) return alert("Select class first");
     if (!gender) return alert("Select gender first");
-
+    if (eventLocked) {
+  return alert("Event is locked. No more scoring allowed.");
+}
     const q = query(
       collection(db, "scores"),
       where("eventName", "==", eventName),

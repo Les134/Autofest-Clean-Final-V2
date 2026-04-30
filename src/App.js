@@ -6,7 +6,8 @@ const categories = [
   "Constant Smoke",
   "Driver Skill & Control"
 ];
-
+import { db } from "./firebase";
+import { doc, setDoc, onSnapshot } from "firebase/firestore";
 const classes = [
   "V8 Pro",
   "V8 N/A",

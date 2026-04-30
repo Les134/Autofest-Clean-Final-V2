@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { db } from "./firebase";
 import { collection, addDoc, query, where, getDocs } from "firebase/firestore";
-
+export default function ScoreSheet({ eventName, judgeName, eventLocked }) {
 export default function ScoreSheet({ eventName, judgeName }) {
   const [carName, setCarName] = useState("");
   const [carClass, setCarClass] = useState("");

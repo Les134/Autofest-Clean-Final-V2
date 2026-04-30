@@ -98,7 +98,7 @@ export default function App(){
   const btn={padding:14,margin:6,borderRadius:6,border:"1px solid #ccc"};
   const active={...btn,background:"red",color:"#fff"};
   const classActive={...btn,background:"green",color:"#fff"};
-
+  const [eventLocked, setEventLocked] = useState(false);
   const renderList = (list)=>list.map((e,i)=>(
     <div key={i}>
       #{i+1} | Car {e.car} | {e.gender} | Score {e.finalScore}

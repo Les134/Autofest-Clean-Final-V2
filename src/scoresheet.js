@@ -2,8 +2,8 @@
 import React, { useState, useEffect } from "react";
 import { db } from "./firebase";
 import { collection, addDoc, query, where, getDocs } from "firebase/firestore";
+
 export default function ScoreSheet({ eventName, judgeName, eventLocked }) {
-export default function ScoreSheet({ eventName, judgeName }) {
   const [carName, setCarName] = useState("");
   const [carClass, setCarClass] = useState("");
   const [gender, setGender] = useState("");
@@ -23,15 +23,15 @@ export default function ScoreSheet({ eventName, judgeName }) {
 
   const [total, setTotal] = useState(0);
 
-  // TOTAL CALCULATION
+  // 🔥 TOTAL CALCULATION (WITH DEDUCTIONS)
   useEffect(() => {
     const base =
       (Number(scores.burnout) || 0) +
       (Number(scores.showmanship) || 0) +
       (Number(scores.crowd) || 0);
 
-    const deductionTotal =
-      Object.values(deductions).filter((d) => d).length * 10;
+    const deductionCount = Object.values(deductions).filter(d => d).length;
+    const deductionTotal = deductionCount * 10;
 
     const final = base - deductionTotal;
 
@@ -39,12 +39,14 @@ export default function ScoreSheet({ eventName, judgeName }) {
   }, [scores, deductions]);
 
   const handleSubmit = async () => {
-    if (!carName.trim()) return alert("Enter car number / rego");
-    if (!carClass) return alert("Select class first");
-    if (!gender) return alert("Select gender first");
     if (eventLocked) {
-  return alert("Event is locked. No more scoring allowed.");
-}
+      return alert("Event is locked. No more scoring allowed.");
+    }
+
+    if (!carName.trim()) return alert("Enter Car No / Rego");
+    if (!gender) return alert("Select gender first");
+    if (!carClass) return alert("Select class first");
+
     const q = query(
       collection(db, "scores"),
       where("eventName", "==", eventName),
@@ -89,13 +91,25 @@ export default function ScoreSheet({ eventName, judgeName }) {
   return (
     <div style={{ marginTop: 20 }}>
 
-      {/* CAR INPUT (BIG) */}
-      <input
-        style={{ fontSize: 22, padding: 10, width: "100%", marginBottom: 10 }}
-        placeholder="Car No / Rego"
-        value={carName}
-        onChange={(e) => setCarName(e.target.value)}
-      />
+      {/* 🔥 CAR INPUT (BIG + REQUIRED) */}
+      <div style={{ marginBottom: 15 }}>
+        <strong style={{ fontSize: 18 }}>Car No / Rego *</strong><br />
+
+        <input
+          style={{
+            fontSize: 26,
+            padding: 12,
+            width: "100%",
+            border: "2px solid #000",
+            marginTop: 5
+          }}
+          placeholder="Enter Car Number or Rego"
+          value={carName}
+          onChange={(e) =>
+            setCarName(e.target.value.toUpperCase())
+          }
+        />
+      </div>
 
       {/* GENDER */}
       <div>
@@ -129,9 +143,9 @@ export default function ScoreSheet({ eventName, judgeName }) {
       </div>
 
       {/* BLOCK SCORING UNTIL READY */}
-      {!gender || !carClass ? (
-        <p style={{ color: "red" }}>
-          Select Gender and Class before scoring
+      {!carName || !gender || !carClass ? (
+        <p style={{ color: "red", marginTop: 10 }}>
+          Enter Car No / Rego, Gender and Class before scoring
         </p>
       ) : (
         <>
@@ -153,9 +167,10 @@ export default function ScoreSheet({ eventName, judgeName }) {
             </div>
           ))}
 
-          {/* DEDUCTIONS */}
+          {/* 🔥 DEDUCTIONS */}
           <div>
             <strong>Deductions (-10 each)</strong><br />
+
             {Object.keys(deductions).map((d) => (
               <button
                 key={d}
@@ -170,9 +185,14 @@ export default function ScoreSheet({ eventName, judgeName }) {
                 {d}
               </button>
             ))}
+
+            <div style={{ marginTop: 10, color: "red" }}>
+              Deductions: -{Object.values(deductions).filter(d => d).length * 10}
+            </div>
           </div>
 
-          <h3>Total: {total}</h3>
+          {/* TOTAL */}
+          <h2>Total Score: {total}</h2>
 
           <button onClick={handleSubmit}>Submit Score</button>
         </>
@@ -180,4 +200,3 @@ export default function ScoreSheet({ eventName, judgeName }) {
     </div>
   );
 }
-

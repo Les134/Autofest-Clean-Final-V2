@@ -1,16 +1,22 @@
 import React, { useState, useEffect } from "react";
 import { db } from "./firebase";
-import { collection, addDoc } from "firebase/firestore";
+import { collection, addDoc, query, where, getDocs } from "firebase/firestore";
 
 export default function ScoreSheet({ eventName, judgeName, eventLocked }) {
   const [car, setCar] = useState("");
-  const [classType, setClassType] = useState("");
   const [gender, setGender] = useState("");
+  const [classType, setClassType] = useState("");
 
   const [scores, setScores] = useState({
-    burnout: 0,
-    showmanship: 0,
-    crowd: 0
+    instant: 0,
+    volume: 0,
+    constant: 0,
+    skill: 0
+  });
+
+  const [blownTyres, setBlownTyres] = useState({
+    left: false,
+    right: false
   });
 
   const [deductions, setDeductions] = useState({
@@ -22,92 +28,192 @@ export default function ScoreSheet({ eventName, judgeName, eventLocked }) {
 
   const [total, setTotal] = useState(0);
 
+  // 🔥 TOTAL CALC
   useEffect(() => {
-    const base = scores.burnout + scores.showmanship + scores.crowd;
-    const ded = Object.values(deductions).filter(Boolean).length * 10;
-    setTotal(base - ded);
-  }, [scores, deductions]);
+    let base =
+      scores.instant +
+      scores.volume +
+      scores.constant +
+      scores.skill;
 
-  const btn = {
-    padding: 12,
-    margin: 4,
-    minWidth: 50
-  };
+    let tyreBonus =
+      (blownTyres.left ? 5 : 0) +
+      (blownTyres.right ? 5 : 0);
 
-  const active = {
-    ...btn,
-    background: "red",
-    color: "#fff"
-  };
+    let deduction =
+      Object.values(deductions).filter(Boolean).length * 10;
 
-  const submit = async () => {
-    if (eventLocked) return alert("Locked");
-    if (!car || !classType || !gender) return alert("Fill all fields");
+    setTotal(base + tyreBonus - deduction);
+  }, [scores, blownTyres, deductions]);
+
+  const handleSubmit = async () => {
+    if (eventLocked) return alert("Event Locked");
+
+    if (!car || !gender || !classType)
+      return alert("Fill all fields");
+
+    // 🔒 PREVENT DOUBLE SCORING
+    const q = query(
+      collection(db, "scores"),
+      where("eventName", "==", eventName),
+      where("car", "==", car),
+      where("judgeName", "==", judgeName)
+    );
+
+    const existing = await getDocs(q);
+
+    if (!existing.empty) {
+      return alert("Already scored this car");
+    }
 
     await addDoc(collection(db, "scores"), {
       eventName,
       judgeName,
       car,
-      classType,
       gender,
-      total,
+      classType,
       scores,
-      deductions
+      blownTyres,
+      deductions,
+      total,
+      createdAt: new Date()
     });
 
-    alert("Saved");
+    // 🔥 CLEAR FORM (LIKE YOUR OLD VERSION)
+    setCar("");
+    setGender("");
+    setClassType("");
+    setScores({
+      instant: 0,
+      volume: 0,
+      constant: 0,
+      skill: 0
+    });
+    setBlownTyres({ left: false, right: false });
+    setDeductions({
+      reversing: false,
+      stopping: false,
+      barrier: false,
+      fire: false
+    });
+
+    alert("Saved — next car");
   };
 
-  return (
-    <div>
+  const btn = { margin: 3, padding: 10 };
+  const active = { ...btn, background: "#333", color: "#fff" };
 
+  const scoreRow = (label, key) => (
+    <div style={{ marginBottom: 20 }}>
+      <strong>{label}</strong><br />
+      {Array.from({ length: 21 }, (_, i) => (
+        <button
+          key={i}
+          style={scores[key] === i ? active : btn}
+          onClick={() => setScores({ ...scores, [key]: i })}
+        >
+          {i}
+        </button>
+      ))}
+    </div>
+  );
+
+  return (
+    <div style={{ padding: 20 }}>
+
+      {/* CAR */}
       <input
-        style={{ fontSize: 28, width: "100%", padding: 10 }}
-        placeholder="CAR NO / REGO"
+        style={{ fontSize: 20, width: "200px" }}
+        placeholder="Entrant No"
         value={car}
         onChange={(e) => setCar(e.target.value.toUpperCase())}
       />
 
-      <h3>GENDER</h3>
-      <button style={gender==="Male"?active:btn} onClick={()=>setGender("Male")}>Male</button>
-      <button style={gender==="Female"?active:btn} onClick={()=>setGender("Female")}>Female</button>
-
-      <h3>CLASS</h3>
-      <button style={classType==="Pro"?active:btn} onClick={()=>setClassType("Pro")}>PRO</button>
-      <button style={classType==="Street"?active:btn} onClick={()=>setClassType("Street")}>STREET</button>
-
-      <h3>BURNOUT</h3>
-      {[...Array(21).keys()].map(n=>(
-        <button key={n} style={scores.burnout===n?active:btn}
-          onClick={()=>setScores({...scores, burnout:n})}>{n}</button>
-      ))}
-
-      <h3>SHOWMANSHIP</h3>
-      {[...Array(21).keys()].map(n=>(
-        <button key={n} style={scores.showmanship===n?active:btn}
-          onClick={()=>setScores({...scores, showmanship:n})}>{n}</button>
-      ))}
-
-      <h3>CROWD</h3>
-      {[...Array(21).keys()].map(n=>(
-        <button key={n} style={scores.crowd===n?active:btn}
-          onClick={()=>setScores({...scores, crowd:n})}>{n}</button>
-      ))}
-
-      <h3>DEDUCTIONS (-10)</h3>
-      {Object.keys(deductions).map(d=>(
-        <button key={d} style={deductions[d]?active:btn}
-          onClick={()=>setDeductions({...deductions,[d]:!deductions[d]})}>
-          {d}
+      {/* GENDER */}
+      <div>
+        <button
+          style={gender === "Male" ? active : btn}
+          onClick={() => setGender("Male")}
+        >
+          Male
         </button>
-      ))}
+        <button
+          style={gender === "Female" ? active : btn}
+          onClick={() => setGender("Female")}
+        >
+          Female
+        </button>
+      </div>
 
-      <h2>TOTAL: {total}</h2>
+      {/* CLASS */}
+      <div>
+        {["V8 Pro", "V8 N/A", "6 Cyl Pro", "6 Cyl N/A", "4 Cyl / Rotary"].map((c) => (
+          <button
+            key={c}
+            style={classType === c ? active : btn}
+            onClick={() => setClassType(c)}
+          >
+            {c}
+          </button>
+        ))}
+      </div>
 
-      <button style={{padding:20,fontSize:20}} onClick={submit}>
-        SUBMIT SCORE
+      {/* SCORES */}
+      {scoreRow("Instant Smoke", "instant")}
+      {scoreRow("Volume of Smoke", "volume")}
+      {scoreRow("Constant Smoke", "constant")}
+      {scoreRow("Driver Skill & Control", "skill")}
+
+      {/* BLOWN TYRES */}
+      <div>
+        <strong>Blown Tyres (+5)</strong><br />
+        <button
+          style={blownTyres.left ? active : btn}
+          onClick={() =>
+            setBlownTyres({ ...blownTyres, left: !blownTyres.left })
+          }
+        >
+          Left
+        </button>
+        <button
+          style={blownTyres.right ? active : btn}
+          onClick={() =>
+            setBlownTyres({ ...blownTyres, right: !blownTyres.right })
+          }
+        >
+          Right
+        </button>
+      </div>
+
+      {/* DEDUCTIONS */}
+      <div>
+        <strong>Deductions (-10)</strong><br />
+        {Object.keys(deductions).map((d) => (
+          <button
+            key={d}
+            style={deductions[d] ? active : btn}
+            onClick={() =>
+              setDeductions({
+                ...deductions,
+                [d]: !deductions[d]
+              })
+            }
+          >
+            {d}
+          </button>
+        ))}
+      </div>
+
+      {/* TOTAL */}
+      <h2>Total: {total}</h2>
+
+      {/* SUBMIT */}
+      <button
+        style={{ width: "100%", padding: 15, fontSize: 18 }}
+        onClick={handleSubmit}
+      >
+        Submit & Next
       </button>
-
     </div>
   );
 }

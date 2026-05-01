@@ -3,12 +3,11 @@ import { db } from "./firebase";
 import { collection, onSnapshot } from "firebase/firestore";
 
 export default function Leaderboard({ eventName }) {
-  const [entries, setEntries] = useState([]);
+  const [data, setData] = useState([]);
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, "scores"), (snap) => {
-      const data = snap.docs.map((d) => d.data());
-      setEntries(data.filter(e => e.eventName === eventName));
+      setData(snap.docs.map(d => d.data()).filter(e => e.eventName === eventName));
     });
 
     return () => unsub();
@@ -16,22 +15,32 @@ export default function Leaderboard({ eventName }) {
 
   const grouped = {};
 
-  entries.forEach(e => {
-    const key = e.carName + "_" + e.carClass;
-    if (!grouped[key]) {
-      grouped[key] = { ...e, total: 0 };
-    }
+  data.forEach(e => {
+    const key = e.carName + e.carClass;
+    if (!grouped[key]) grouped[key] = {...e, total: 0};
     grouped[key].total += e.total;
   });
 
   const sorted = Object.values(grouped).sort((a,b)=>b.total-a.total);
 
+  const classes = {
+    Pro: sorted.filter(e => e.carClass === "Pro"),
+    Street: sorted.filter(e => e.carClass === "Street")
+  };
+
   return (
     <div>
-      <h2>Leaderboard</h2>
-      {sorted.map((e,i)=>(
-        <div key={i}>
-          #{i+1} | {e.carName} | {e.carClass} | {e.total}
+      <h1>Leaderboard</h1>
+
+      {Object.keys(classes).map(cls => (
+        <div key={cls}>
+          <h2>{cls}</h2>
+
+          {classes[cls].map((e,i)=>(
+            <div key={i}>
+              #{i+1} {e.carName} — {e.total}
+            </div>
+          ))}
         </div>
       ))}
     </div>

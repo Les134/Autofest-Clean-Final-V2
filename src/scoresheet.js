@@ -13,8 +13,7 @@ export default function ScoreSheet({ eventName, judgeName, eventLocked }) {
     constant: 0,
     skill: 0
   });
-  
-import ScoreSheet from "./ScoreSheet";
+
   const [blownTyres, setBlownTyres] = useState({
     left: false,
     right: false
@@ -29,7 +28,6 @@ import ScoreSheet from "./ScoreSheet";
 
   const [total, setTotal] = useState(0);
 
-  // 🔥 TOTAL CALC
   useEffect(() => {
     let base =
       scores.instant +
@@ -48,12 +46,11 @@ import ScoreSheet from "./ScoreSheet";
   }, [scores, blownTyres, deductions]);
 
   const handleSubmit = async () => {
-    if (eventLocked) return alert("Event Locked");
+    if (eventLocked) return alert("Event locked");
 
     if (!car || !gender || !classType)
       return alert("Fill all fields");
 
-    // 🔒 PREVENT DOUBLE SCORING
     const q = query(
       collection(db, "scores"),
       where("eventName", "==", eventName),
@@ -79,10 +76,8 @@ import ScoreSheet from "./ScoreSheet";
       total,
       createdAt: new Date()
     });
-    if (eventLocked) {
-  return alert("Event locked — scoring disabled");
-}
-    // 🔥 CLEAR FORM (LIKE YOUR OLD VERSION)
+
+    // RESET FORM
     setCar("");
     setGender("");
     setClassType("");
@@ -124,7 +119,6 @@ import ScoreSheet from "./ScoreSheet";
   return (
     <div style={{ padding: 20 }}>
 
-      {/* CAR */}
       <input
         style={{ fontSize: 20, width: "200px" }}
         placeholder="Entrant No"
@@ -132,7 +126,6 @@ import ScoreSheet from "./ScoreSheet";
         onChange={(e) => setCar(e.target.value.toUpperCase())}
       />
 
-      {/* GENDER */}
       <div>
         <button
           style={gender === "Male" ? active : btn}
@@ -148,7 +141,6 @@ import ScoreSheet from "./ScoreSheet";
         </button>
       </div>
 
-      {/* CLASS */}
       <div>
         {["V8 Pro", "V8 N/A", "6 Cyl Pro", "6 Cyl N/A", "4 Cyl / Rotary"].map((c) => (
           <button
@@ -161,13 +153,11 @@ import ScoreSheet from "./ScoreSheet";
         ))}
       </div>
 
-      {/* SCORES */}
       {scoreRow("Instant Smoke", "instant")}
       {scoreRow("Volume of Smoke", "volume")}
       {scoreRow("Constant Smoke", "constant")}
       {scoreRow("Driver Skill & Control", "skill")}
 
-      {/* BLOWN TYRES */}
       <div>
         <strong>Blown Tyres (+5)</strong><br />
         <button
@@ -188,7 +178,6 @@ import ScoreSheet from "./ScoreSheet";
         </button>
       </div>
 
-      {/* DEDUCTIONS */}
       <div>
         <strong>Deductions (-10)</strong><br />
         {Object.keys(deductions).map((d) => (
@@ -207,10 +196,8 @@ import ScoreSheet from "./ScoreSheet";
         ))}
       </div>
 
-      {/* TOTAL */}
       <h2>Total: {total}</h2>
 
-      {/* SUBMIT */}
       <button
         style={{ width: "100%", padding: 15, fontSize: 18 }}
         onClick={handleSubmit}

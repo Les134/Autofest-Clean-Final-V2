@@ -13,7 +13,8 @@ export default function ScoreSheet({ eventName, judgeName, eventLocked }) {
     constant: 0,
     skill: 0
   });
-
+  
+import ScoreSheet from "./ScoreSheet";
   const [blownTyres, setBlownTyres] = useState({
     left: false,
     right: false

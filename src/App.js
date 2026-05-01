@@ -1,135 +1,101 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import ScoreSheet from "./scoresheet";
 import Leaderboard from "./leaderboard";
 
-import { db } from "./firebase";
-import { doc, setDoc, onSnapshot } from "firebase/firestore";
-
 export default function App() {
   const [screen, setScreen] = useState("home");
-  const [eventName, setEventName] = useState("");
-  const [judges, setJudges] = useState(["", "", "", "", "", ""]);
-  const [activeJudge, setActiveJudge] = useState("");
-  const [eventLocked, setEventLocked] = useState(false);
+  const [eventName] = useState("autofest-live");
+  const [judgeName, setJudgeName] = useState("");
+  const [round, setRound] = useState("round1");
 
-  useEffect(() => {
-    if (!eventName) return;
-    const unsub = onSnapshot(doc(db, "events", eventName), (snap) => {
-      if (snap.exists()) setEventLocked(snap.data().locked);
-    });
-    return () => unsub();
-  }, [eventName]);
+  const rounds = [
+    "round1",
+    "round2",
+    "top150",
+    "top30",
+    "finals"
+  ];
 
-  const startEvent = async () => {
-    const valid = judges.filter(j => j.trim());
-    if (!eventName) return alert("Enter event name");
-    if (!valid.length) return alert("Add judges");
-
-    setJudges(valid);
-    await setDoc(doc(db, "events", eventName), { locked: false });
-    setScreen("judge");
-  };
-
-  const btn = {
-    padding: 16,
-    margin: 10,
-    fontSize: 20,
-    width: "100%",
-    maxWidth: 300
-  };
+  const btn = { width: "100%", padding: 16, margin: 6 };
 
   if (screen === "home") {
     return (
-      <div style={{ textAlign: "center", padding: 40 }}>
-        <h1>🏁 AUTOFEST SERIES</h1>
+      <div style={{ padding: 30, textAlign: "center" }}>
+        <h1>🔥 AUTOFEST LIVE SYNC 🔥</h1>
 
-        <button style={btn} onClick={() => setScreen("setup")}>
-          START EVENT
-        </button>
-
-        <button style={btn} onClick={() => setScreen("judge")}>
-          JUDGE LOGIN
+        <button style={btn} onClick={() => setScreen("login")}>
+          Judge Login
         </button>
 
         <button style={btn} onClick={() => setScreen("leader")}>
-          LEADERBOARD
+          Leaderboard
+        </button>
+
+        <button style={btn} onClick={() => setScreen("admin")}>
+          Admin
         </button>
       </div>
     );
   }
 
-  if (screen === "setup") {
+  if (screen === "login") {
     return (
       <div style={{ padding: 20 }}>
-        <h2>EVENT SETUP</h2>
+        <h2>Judge Login</h2>
 
         <input
-          style={{ fontSize: 20, padding: 10, width: "100%" }}
-          placeholder="Event Name"
-          value={eventName}
-          onChange={(e) => setEventName(e.target.value)}
+          placeholder="Judge Name"
+          onChange={(e) => setJudgeName(e.target.value)}
         />
 
-        {judges.map((j, i) => (
-          <input
-            key={i}
-            style={{ marginTop: 10, width: "100%" }}
-            placeholder={`Judge ${i + 1}`}
-            onChange={(e) => {
-              const copy = [...judges];
-              copy[i] = e.target.value;
-              setJudges(copy);
-            }}
-          />
-        ))}
-
-        <button style={btn} onClick={startEvent}>
-          START
-        </button>
-      </div>
-    );
-  }
-
-  if (screen === "judge") {
-    return (
-      <div style={{ padding: 20 }}>
-        <h2>SELECT JUDGE</h2>
-
-        {judges.map((j, i) => (
-          <button
-            key={i}
-            style={btn}
-            onClick={() => {
-              setActiveJudge(j);
-              setScreen("score");
-            }}
-          >
-            {j}
+        <h3>Select Round</h3>
+        {rounds.map(r => (
+          <button key={r} onClick={() => setRound(r)}>
+            {r}
           </button>
         ))}
+
+        <button onClick={() => setScreen("score")}>Start</button>
       </div>
     );
   }
 
   if (screen === "score") {
     return (
-      <div style={{ padding: 20 }}>
-        <h2>{eventName}</h2>
-        <h3>{activeJudge}</h3>
-
-        {eventLocked && <h2 style={{ color: "red" }}>LOCKED</h2>}
-
-        <ScoreSheet
-          eventName={eventName}
-          judgeName={activeJudge}
-          eventLocked={eventLocked}
-        />
-      </div>
+      <ScoreSheet
+        eventName={eventName}
+        judgeName={judgeName}
+        round={round}
+      />
     );
   }
 
   if (screen === "leader") {
-    return <Leaderboard eventName={eventName} />;
+    return (
+      <Leaderboard
+        eventName={eventName}
+        round={round}
+      />
+    );
+  }
+
+  if (screen === "admin") {
+    return (
+      <div style={{ padding: 20 }}>
+        <h2>Admin Panel</h2>
+
+        <p>Round Control</p>
+        {rounds.map(r => (
+          <button key={r} onClick={() => setRound(r)}>
+            {r}
+          </button>
+        ))}
+
+        <p>Archive event handled in Firebase console</p>
+
+        <button onClick={() => setScreen("home")}>Back</button>
+      </div>
+    );
   }
 
   return null;

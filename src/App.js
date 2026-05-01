@@ -14,74 +14,57 @@ export default function App() {
 
   useEffect(() => {
     if (!eventName) return;
-
-    const unsub = onSnapshot(doc(db, "events", eventName), (docSnap) => {
-      if (docSnap.exists()) {
-        setEventLocked(docSnap.data().locked);
-      }
+    const unsub = onSnapshot(doc(db, "events", eventName), (snap) => {
+      if (snap.exists()) setEventLocked(snap.data().locked);
     });
-
     return () => unsub();
   }, [eventName]);
 
   const startEvent = async () => {
-    const valid = judges.filter((j) => j.trim() !== "");
+    const valid = judges.filter(j => j.trim());
     if (!eventName) return alert("Enter event name");
-    if (valid.length === 0) return alert("Add at least 1 judge");
+    if (!valid.length) return alert("Add judges");
 
     setJudges(valid);
-
-    await setDoc(doc(db, "events", eventName), {
-      locked: false
-    });
-
+    await setDoc(doc(db, "events", eventName), { locked: false });
     setScreen("judge");
   };
 
-  const lockEvent = async () => {
-    await setDoc(doc(db, "events", eventName), { locked: true });
-  };
-
-  const unlockEvent = async () => {
-    await setDoc(doc(db, "events", eventName), { locked: false });
-  };
-
   const btn = {
-    padding: 12,
-    margin: 8,
-    fontSize: 18,
-    borderRadius: 6
+    padding: 16,
+    margin: 10,
+    fontSize: 20,
+    width: "100%",
+    maxWidth: 300
   };
 
-  // HOME
   if (screen === "home") {
     return (
-      <div style={{ textAlign: "center", padding: 30 }}>
+      <div style={{ textAlign: "center", padding: 40 }}>
         <h1>🏁 AUTOFEST SERIES</h1>
 
         <button style={btn} onClick={() => setScreen("setup")}>
-          Start Event
+          START EVENT
         </button>
 
         <button style={btn} onClick={() => setScreen("judge")}>
-          Judge Login
+          JUDGE LOGIN
         </button>
 
         <button style={btn} onClick={() => setScreen("leader")}>
-          Leaderboard
+          LEADERBOARD
         </button>
       </div>
     );
   }
 
-  // SETUP
   if (screen === "setup") {
     return (
       <div style={{ padding: 20 }}>
-        <h2>Event Setup</h2>
+        <h2>EVENT SETUP</h2>
 
         <input
-          style={{ fontSize: 18, padding: 10, width: "100%" }}
+          style={{ fontSize: 20, padding: 10, width: "100%" }}
           placeholder="Event Name"
           value={eventName}
           onChange={(e) => setEventName(e.target.value)}
@@ -90,7 +73,7 @@ export default function App() {
         {judges.map((j, i) => (
           <input
             key={i}
-            style={{ display: "block", marginTop: 10 }}
+            style={{ marginTop: 10, width: "100%" }}
             placeholder={`Judge ${i + 1}`}
             onChange={(e) => {
               const copy = [...judges];
@@ -101,17 +84,16 @@ export default function App() {
         ))}
 
         <button style={btn} onClick={startEvent}>
-          Start Event
+          START
         </button>
       </div>
     );
   }
 
-  // JUDGE LOGIN
   if (screen === "judge") {
     return (
       <div style={{ padding: 20 }}>
-        <h2>Select Judge</h2>
+        <h2>SELECT JUDGE</h2>
 
         {judges.map((j, i) => (
           <button
@@ -129,19 +111,13 @@ export default function App() {
     );
   }
 
-  // SCORE
   if (screen === "score") {
     return (
       <div style={{ padding: 20 }}>
         <h2>{eventName}</h2>
-        <h3>Judge: {activeJudge}</h3>
+        <h3>{activeJudge}</h3>
 
-        {eventLocked && (
-          <h2 style={{ color: "red" }}>🔒 EVENT LOCKED</h2>
-        )}
-
-        <button onClick={lockEvent}>Lock</button>
-        <button onClick={unlockEvent}>Unlock</button>
+        {eventLocked && <h2 style={{ color: "red" }}>LOCKED</h2>}
 
         <ScoreSheet
           eventName={eventName}
@@ -152,13 +128,8 @@ export default function App() {
     );
   }
 
-  // LEADERBOARD
   if (screen === "leader") {
-    return (
-      <div style={{ padding: 20 }}>
-        <Leaderboard eventName={eventName} />
-      </div>
-    );
+    return <Leaderboard eventName={eventName} />;
   }
 
   return null;

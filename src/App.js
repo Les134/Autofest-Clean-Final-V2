@@ -158,7 +158,59 @@ export default function App() {
     );
   }
 
-  // SCORE (with yellow warnings)
+  // JUDGE
+  if(screen==="judge"){
+    return(
+      <div style={styles.container}>
+        <input style={styles.input} value={eventName} onChange={(e)=>setEventName(e.target.value)} placeholder="Event Name"/>
+        <button style={styles.button} onClick={createEvent}>Save Event</button>
+
+        {Object.keys(events).map(e=>(
+          <button key={e} style={styles.button} onClick={()=>setSelectedEvent(e)}>
+            {e} {lockedEvents[e] ? "🔒" : ""}
+          </button>
+        ))}
+
+        <input style={styles.input} value={newJudge} onChange={(e)=>setNewJudge(e.target.value)} placeholder="Judge Name"/>
+        <button style={styles.button} onClick={addJudge}>Add Judge</button>
+
+        {events[selectedEvent]?.map(j=>(
+          <button key={j} style={styles.button} onClick={()=>{ setSelectedJudge(j); setScreen("score"); }}>
+            {j}
+          </button>
+        ))}
+
+        <button style={styles.button} onClick={lockEvent}>Lock Event</button>
+        <button style={styles.button} onClick={()=>setScreen("home")}>Home</button>
+      </div>
+    );
+  }
+
+  // LEADERBOARD (unchanged working)
+  if(screen==="leaderboard"){
+    let data = combineScores(getEventResults());
+
+    return(
+      <div style={styles.container}>
+        <h2>{boardType} Leaderboard</h2>
+
+        <button style={styles.button} onClick={printPage}>Print</button>
+
+        {sort(data).map((r,i)=>{
+          const d = r.deductions.length ? ` - ${r.deductions.join(", ")}` : "";
+          return(
+            <div key={i}>
+              #{i+1} | {r.car} {r.gender} | {r.carClass}{d} ={r.total}
+            </div>
+          );
+        })}
+
+        <button style={styles.button} onClick={()=>setScreen("home")}>Home</button>
+      </div>
+    );
+  }
+
+  // SCORE
   if(screen==="score"){
     return(
       <div style={styles.container}>

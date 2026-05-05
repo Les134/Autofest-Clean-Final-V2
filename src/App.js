@@ -299,5 +299,5 @@ export default function App() {
     );
   }
 
-  return null;
+  return <div style={{color:"white"}}>LOADING...</div>;
 }
